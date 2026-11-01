@@ -375,6 +375,7 @@
                 v-for="d in devices"
                 :key="d.id"
                 align="center"
+                class="ob-dev"
               >
                 <v-col>
                   <div>

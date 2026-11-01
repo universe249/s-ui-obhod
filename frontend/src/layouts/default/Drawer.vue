@@ -8,9 +8,11 @@
     @click="isMobile ? $emit('toggleDrawer') : null"
   >
     <v-list-item
+      class="ob-brand"
       height="63"
-      prepend-avatar="@/assets/logo.svg"
-      title="S-UI"
+      prepend-avatar="@/assets/obhod-logo.png"
+      :title="$t('obhod.brand')"
+      subtitle="s-ui"
     >
       <template
         v-if="isMobile"

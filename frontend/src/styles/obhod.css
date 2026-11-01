@@ -1,0 +1,132 @@
+/* obhod: панель в стиле приложения «Обход для чайников» — стекло, цветные пятна на фоне, крупные скругления. */
+:root {
+  --ob-font: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+  --ob-display: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --ob-r-lg: 22px;
+  --ob-r-md: 16px;
+  --ob-r-sm: 12px;
+  --ob-blur: blur(24px) saturate(1.6);
+}
+.v-theme--dark {
+  --ob-bg: #070b16;
+  --ob-fill: rgba(255, 255, 255, .06);
+  --ob-fill-hi: rgba(255, 255, 255, .1);
+  --ob-line: rgba(255, 255, 255, .12);
+  --ob-hi: rgba(255, 255, 255, .22);
+  --ob-solid: rgba(20, 27, 42, .94);
+  --ob-shadow: rgba(2, 6, 18, .45);
+  --ob-field: rgba(2, 6, 16, .32);
+}
+.v-theme--light {
+  --ob-bg: #e6edf8;
+  --ob-fill: rgba(255, 255, 255, .55);
+  --ob-fill-hi: rgba(255, 255, 255, .8);
+  --ob-line: rgba(30, 50, 90, .13);
+  --ob-hi: rgba(255, 255, 255, .95);
+  --ob-solid: rgba(248, 250, 255, .96);
+  --ob-shadow: rgba(50, 70, 120, .16);
+  --ob-field: rgba(255, 255, 255, .6);
+}
+
+body, .v-application, .v-application .text-h1, .v-application .text-h2, .v-application .text-h3,
+.v-application .text-h4, .v-application .text-h5, .v-application .text-h6, .v-application [class*="text-body"],
+.v-application .text-caption, .v-application .text-subtitle-1, .v-application .text-subtitle-2 {
+  font-family: var(--ob-font) !important;
+}
+
+/* фон: тёмно-синий с размытыми цветными пятнами, как в приложении */
+html, body { background: #070b16; }
+body:has(.v-theme--light) { background: #e6edf8; }
+.v-application.v-theme--dark, .v-application.v-theme--light { background: transparent !important; }
+body::before {
+  content: ""; position: fixed; inset: -20%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 18% 22%, rgba(45, 212, 167, .42), transparent 70%),
+    radial-gradient(34% 30% at 82% 12%, rgba(155, 140, 255, .36), transparent 70%),
+    radial-gradient(36% 32% at 70% 88%, rgba(255, 171, 94, .26), transparent 70%),
+    radial-gradient(30% 28% at 8% 92%, rgba(90, 168, 255, .30), transparent 70%);
+  filter: blur(24px);
+}
+body:has(.v-theme--light)::before { opacity: .75; }
+#app, .v-application__wrap { position: relative; z-index: 1; }
+
+/* стеклянные поверхности */
+.v-application .v-card, .v-application .v-navigation-drawer, .v-application .v-app-bar.v-toolbar,
+.v-application .v-table, .v-application .v-expansion-panel {
+  background: var(--ob-fill) !important;
+  backdrop-filter: var(--ob-blur); -webkit-backdrop-filter: var(--ob-blur);
+  border: 1px solid var(--ob-line) !important;
+  box-shadow: 0 10px 30px -12px var(--ob-shadow), inset 0 1px 0 var(--ob-hi) !important;
+}
+.v-application .v-card { border-radius: var(--ob-r-lg) !important; }
+.v-application .v-card .v-card, .v-application .v-card .v-table { box-shadow: none !important; background: var(--ob-fill) !important; }
+.v-application .v-table { border-radius: var(--ob-r-md) !important; overflow: hidden; }
+.v-application .v-table > .v-table__wrapper > table > thead > tr > th { background: transparent !important; font-weight: 600; }
+.v-application .v-table .v-table__wrapper > table > tbody > tr:hover > td { background: var(--ob-fill-hi); }
+.v-application .v-navigation-drawer { border-width: 0 1px 0 0 !important; }
+.v-application .v-app-bar.v-toolbar { border-width: 0 0 1px 0 !important; }
+.v-application .v-app-bar .v-toolbar-title { font-family: var(--ob-display) !important; font-weight: 650; letter-spacing: -.01em; }
+.v-application .v-expansion-panel { margin-bottom: 8px; border-radius: var(--ob-r-md) !important; }
+
+/* диалоги и меню — плотнее, чтобы текст читался поверх содержимого */
+.v-overlay__content > .v-card, .v-overlay__content > .v-list, .v-overlay__content > .v-sheet {
+  background: var(--ob-solid) !important;
+  backdrop-filter: var(--ob-blur); -webkit-backdrop-filter: var(--ob-blur);
+  border: 1px solid var(--ob-line) !important; border-radius: var(--ob-r-lg) !important;
+}
+.v-overlay__content > .v-list { border-radius: var(--ob-r-md) !important; }
+.v-overlay__scrim { backdrop-filter: blur(3px); }
+
+/* пункты меню слева — «таблетки» с цветной подсветкой активного */
+.v-navigation-drawer .v-list-item { border-radius: var(--ob-r-sm) !important; margin: 2px 6px; }
+.v-navigation-drawer .v-list-item--active {
+  background: linear-gradient(90deg, rgba(var(--v-theme-primary), .28), rgba(var(--v-theme-secondary), .14)) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
+.v-navigation-drawer .v-list-item--active .v-icon { color: rgb(var(--v-theme-primary)); }
+.v-navigation-drawer .v-list-item--active > .v-list-item__overlay { opacity: 0 !important; }
+
+/* вкладки — сегменты, как переключатель «Сервисы / Приложения» в приложении */
+.v-tabs:not(.v-tabs--vertical) {
+  background: var(--ob-fill); border: 1px solid var(--ob-line); border-radius: 999px; padding: 4px;
+  width: fit-content; max-width: 100%; margin: 6px auto; height: auto !important;
+}
+.v-tabs:not(.v-tabs--vertical) .v-tab {
+  border-radius: 999px !important; text-transform: none; letter-spacing: 0; min-width: 0; height: 36px !important;
+}
+.v-tabs:not(.v-tabs--vertical) .v-tab--selected {
+  background: linear-gradient(180deg, rgba(var(--v-theme-primary), .5), rgba(var(--v-theme-primary), .26));
+  box-shadow: inset 0 1px 0 var(--ob-hi);
+}
+.v-tabs .v-tab__slider { display: none; }
+
+/* кнопки и поля */
+.v-btn { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.v-btn:not(.v-btn--icon) { border-radius: var(--ob-r-sm) !important; }
+.v-btn--variant-elevated, .v-btn--variant-flat {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 6px 16px -8px rgba(var(--v-theme-primary), .9) !important;
+}
+.v-field { border-radius: var(--ob-r-sm) !important; }
+.v-field--variant-solo-filled, .v-field--variant-solo, .v-field--variant-filled {
+  background: var(--ob-field) !important; box-shadow: inset 0 0 0 1px var(--ob-line) !important;
+}
+.v-field--focused { box-shadow: inset 0 0 0 1.5px rgb(var(--v-theme-primary)) !important; }
+.v-chip { border-radius: 999px !important; }
+.v-switch .v-switch__track { opacity: 1; background: rgba(127, 140, 160, .35); }
+.v-switch .v-selection-control--dirty .v-switch__track { background: rgb(var(--v-theme-primary)); }
+
+/* заголовки разделов внутри карточек */
+.v-card-title { font-family: var(--ob-display) !important; font-weight: 650; letter-spacing: -.01em; }
+.v-card-subtitle { border-bottom-color: var(--ob-line) !important; }
+
+/* логотип в меню */
+.ob-brand .v-list-item-title { font-family: var(--ob-display) !important; font-weight: 700; font-size: 15px; }
+.ob-brand .v-avatar img { filter: drop-shadow(0 4px 10px rgba(45, 212, 167, .45)); }
+
+/* карточки устройств во вкладке клиента */
+.ob-dev { background: var(--ob-fill); border: 1px solid var(--ob-line); border-radius: var(--ob-r-md); padding: 10px 14px; margin: 6px 0; }
+.ob-dev b { font-family: var(--ob-display); }
+.ob-nowrap { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; }
+.ob-hero img { filter: drop-shadow(0 10px 24px rgba(45, 212, 167, .45)); }
+.ob-hero-img, .ob-hero img { border-radius: 50%; }
+.ob-hero-img { filter: drop-shadow(0 10px 24px rgba(45, 212, 167, .45)); }

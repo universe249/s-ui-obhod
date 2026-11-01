@@ -12,6 +12,14 @@
         sm="8"
         md="4"
       >
+        <div class="text-center mb-4">
+          <img
+            class="ob-hero-img"
+            src="@/assets/obhod-logo.png"
+            width="88"
+            alt=""
+          >
+        </div>
         <v-card>
           <v-card-title class="headline">
             {{ $t('login.title') }}

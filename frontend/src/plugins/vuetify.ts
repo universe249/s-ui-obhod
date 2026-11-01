@@ -7,8 +7,8 @@
 // Styles
 import '@mdi/font/css/materialdesignicons.css'
 import 'vuetify/styles/main.css'
+import '@/styles/obhod.css'
 
-import colors from 'vuetify/util/colors'
 import { fa, en, vi, zhHans, zhHant, ru } from 'vuetify/locale'
 
 // Composables
@@ -18,6 +18,8 @@ import { createVuetify } from 'vuetify'
 export default createVuetify({
   defaults: {
     VRow: { density: 'compact' },
+    VCard: { rounded: 'xl', elevation: 0 },
+    VChip: { rounded: 'pill' },
     VTextField: {
       variant: 'solo-filled',
     },
@@ -32,17 +34,32 @@ export default createVuetify({
     },
   },
   theme: {
-    defaultTheme: localStorage.getItem('theme') ?? 'system',
+    // obhod: как в приложении — по умолчанию тёмная тема, бирюзовый акцент
+    defaultTheme: localStorage.getItem('theme') ?? 'dark',
     themes: {
       light: {
         colors: {
-          error: colors.red.accent2,
-          background: colors.grey.lighten4,
+          primary: '#14916f',
+          secondary: '#6d5ce0',
+          success: '#14916f',
+          info: '#2f7fdc',
+          warning: '#c98510',
+          error: '#d23f3f',
+          background: '#e6edf8',
+          surface: '#ffffff',
         },
       },
       dark: {
         colors: {
-          error: colors.red.accent2,
+          primary: '#2dd4a7',
+          secondary: '#9b8cff',
+          success: '#2dd4a7',
+          info: '#5aa8ff',
+          warning: '#f5b84a',
+          error: '#f06b6b',
+          background: '#070b16',
+          surface: '#141b2a',
+          'on-primary': '#04211a',
         },
       },
     },

@@ -18,8 +18,9 @@
       <v-row class="d-flex align-center justify-center">
         <v-col cols="auto">
           <v-img
-            src="@/assets/logo.svg"
-            :width="reloadItems.length>0 ? 100 : 200"
+            class="ob-hero"
+            src="@/assets/obhod-logo.png"
+            :width="reloadItems.length>0 ? 72 : 160"
           />
         </v-col>
       </v-row>

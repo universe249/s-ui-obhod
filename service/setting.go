@@ -78,7 +78,7 @@ var defaultValueMap = map[string]string{
 	"sessionMaxAge":       "0",
 	"trafficAge":          "30",
 	"statsBucketSeconds":  "60",
-	"timeLocation":        "Asia/Tehran",
+	"timeLocation":        "Europe/Moscow", // obhod
 	"subListen":           "",
 	"subPort":             "2096",
 	"subPath":             "/sub/",

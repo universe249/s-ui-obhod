@@ -322,7 +322,7 @@
         <template #item.devices="{ item }">
           <div
             v-if="devSummary[item.id]"
-            class="text-start"
+            class="text-start ob-nowrap"
           >
             <v-chip
               density="comfortable"
@@ -341,7 +341,6 @@
               size="small"
               color="error"
               variant="flat"
-              class="ms-1"
             >
               +{{ devSummary[item.id].limitHits24h }}
               <v-tooltip

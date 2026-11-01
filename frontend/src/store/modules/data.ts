@@ -58,7 +58,7 @@ type Tagged = Inbound | Outbound | Srv | Endpoint
 const Data = defineStore('Data', {
   state: () => ({ 
     lastLoad: 0,
-    reloadItems: localStorage.getItem("reloadItems")?.split(',')?? <string[]>[],
+    reloadItems: localStorage.getItem("reloadItems")?.split(',')?? <string[]>["g-cpu", "g-mem", "g-dsk", "h-net", "i-sys", "i-sbd"], // obhod: главная сразу с показателями сервера
     subURI: "",
     os: "",
     enableTraffic: false,

@@ -471,7 +471,7 @@ const settings = ref({
 	sessionMaxAge: "0",
   trafficAge: "30",
   statsBucketSeconds: "60",
-	timeLocation: "Asia/Tehran",
+	timeLocation: "Europe/Moscow",
   subListen: "",
 	subPort: "2096",
 	subPath: "/sub/",

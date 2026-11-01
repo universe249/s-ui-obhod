@@ -254,6 +254,9 @@ export default {
     clashSprtAll: "Support 'all'",
     clashUdp: "Enable UDP by default",
   },
+  obhod: {
+    brand: "Obhod panel",
+  },
   client: {
     name: "Name",
     desc: "Description",
