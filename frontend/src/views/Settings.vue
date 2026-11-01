@@ -353,6 +353,19 @@
               md="4"
             >
               <v-text-field
+                v-model="settings.publicHost"
+                :label="$t('obhod.publicHost')"
+                :hint="$t('obhod.publicHostHint')"
+                placeholder="hoop.example.ru"
+                persistent-hint
+              />
+            </v-col>
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-text-field
                 v-model="settings.subURI"
                 :label="$t('setting.subUri')"
                 hide-details
@@ -479,6 +492,7 @@ const settings = ref({
 	subCertFile: "",
 	subKeyFile: "",
 	subUpdates: "12",
+	publicHost: "",
 	deviceRotateHours: "0",
 	deviceGraceHours: "24",
 	deviceWebhook: "",

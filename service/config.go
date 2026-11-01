@@ -447,15 +447,28 @@ func (s *ConfigService) Save(obj string, act string, data json.RawMessage, initU
 		restartWith = configData
 	case "settings":
 		remarkPrefix := s.SettingService.SubRemarkPrefix(tx)
+		oldHost := s.SettingService.PublicHost(tx)
 		err = s.SettingService.Save(tx, data)
 		// Stored client links carry the remark prefix, so flipping it has to
-		// rebuild them, the way a TLS edit does.
-		if err == nil && s.SettingService.SubRemarkPrefix(tx) != remarkPrefix {
+		// rebuild them, the way a TLS edit does. obhod: и смена публичного адреса сервера.
+		newHost := s.SettingService.PublicHost(tx)
+		if err == nil && (s.SettingService.SubRemarkPrefix(tx) != remarkPrefix || newHost != oldHost) {
+			if newHost != "" {
+				hostname = newHost
+			}
 			var inbounds []model.Inbound
 			err = tx.Model(model.Inbound{}).Preload("Tls").Find(&inbounds).Error
 			if err == nil {
 				err = s.ClientService.UpdateLinksByInboundChange(tx, &inbounds, hostname, "")
 				objs = append(objs, "clients")
+			}
+			if err == nil && newHost != oldHost {
+				ids := make([]uint, 0, len(inbounds))
+				for _, in := range inbounds {
+					ids = append(ids, in.Id)
+				}
+				err = s.InboundService.UpdateOutJsons(tx, ids, hostname)
+				objs = append(objs, "inbounds")
 			}
 		}
 	default:

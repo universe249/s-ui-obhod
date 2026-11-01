@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/alireza0/s-ui/service"
 	"net"
 	"net/http"
 	"strings"
@@ -24,6 +25,10 @@ func getRemoteIp(c *gin.Context) string {
 }
 
 func getHostname(c *gin.Context) string {
+	// obhod: заданный публичный адрес сервера важнее адреса, с которого открыта панель
+	if h := (&service.SettingService{}).PublicHost(nil); h != "" {
+		return h
+	}
 	host := c.Request.Host
 	if strings.Contains(host, ":") {
 		host, _, _ = net.SplitHostPort(c.Request.Host)

@@ -24,6 +24,34 @@
           />
         </v-col>
       </v-row>
+      <v-row
+        v-if="problems.length > 0"
+        class="d-flex justify-center"
+      >
+        <v-col
+          cols="12"
+          md="8"
+        >
+          <v-alert
+            type="warning"
+            variant="tonal"
+            rounded="xl"
+            :title="$t('obhod.problems')"
+          >
+            <div
+              v-for="(p, i) in problems"
+              :key="i"
+            >
+              • <router-link
+                :to="p.to"
+                class="text-warning"
+              >
+                {{ p.text }}
+              </router-link>
+            </div>
+          </v-alert>
+        </v-col>
+      </v-row>
       <v-row class="d-flex align-center justify-center">
         <v-col cols="auto">
           <v-dialog
@@ -451,6 +479,25 @@ import History from '@/components/tiles/History.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { i18n, locale } from '@/locales'
 import LogVue from '@/layouts/modals/Logs.vue'
+
+// obhod: сводка того, что требует внимания — входящие, которые часть приложений не примет, и сертификаты
+interface Problem { text: string, to: string }
+const problems = ref<Problem[]>([])
+const loadProblems = async () => {
+  const out: Problem[] = []
+  const ch = await HttpUtils.get<Record<number, { level: string }[]>>('api/inboundChecks')
+  const bad = Object.values(ch.obj ?? {}).filter(l => l.some(c => c.level == 'bad')).length
+  if (bad > 0) out.push({ text: i18n.global.t('obhod.inboundsBad', { n: bad }), to: '/inbounds' })
+  const cs = await HttpUtils.get<{ tlsId: number, daysLeft: number, error?: string, source: string, notAfter: number }[]>('api/certs')
+  const tlsName = (id: number) => Data().tlsConfigs.find(t => t.id == id)?.name ?? ('#' + id)
+  for (const c of cs.obj ?? []) {
+    if (c.source == 'acme') continue
+    if (c.error) out.push({ text: i18n.global.t('obhod.certSoon', { name: tlsName(c.tlsId), text: c.error }), to: '/tls' })
+    else if (c.daysLeft < 14) out.push({ text: i18n.global.t('obhod.certSoon', { name: tlsName(c.tlsId), text: c.daysLeft < 0 ? i18n.global.t('obhod.certExpired') : i18n.global.t('obhod.certUntil', { d: new Date(c.notAfter * 1000).toLocaleDateString(), n: c.daysLeft }) }), to: '/tls' })
+  }
+  problems.value = out
+}
+loadProblems()
 import Backup from '@/layouts/modals/Backup.vue'
 import UsageStats from '@/layouts/modals/UsageStats.vue'
 

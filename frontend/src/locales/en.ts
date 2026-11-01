@@ -255,6 +255,17 @@ export default {
     clashUdp: "Enable UDP by default",
   },
   obhod: {
+    compatOk: "Apps OK",
+    compatIssues: "Issues: {n}",
+    cert: "Certificate",
+    certExpired: "expired",
+    selfSigned: "self-signed",
+    certUntil: "until {d} ({n} d)",
+    publicHost: "Public server address",
+    publicHostHint: "Used in every link and subscription instead of the address the panel is opened from",
+    problems: "Needs attention",
+    inboundsBad: "Inbounds that some apps will reject: {n}",
+    certSoon: "Certificate «{name}»: {text}",
     brand: "Obhod panel",
   },
   client: {

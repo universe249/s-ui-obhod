@@ -55,6 +55,39 @@
             <v-col>{{ item.type }}</v-col>
           </v-row>
         </v-card-subtitle>
+        <div class="px-4 pb-1">
+          <v-chip
+            v-if="!checks[item.id]"
+            size="x-small"
+            color="success"
+            variant="tonal"
+            prepend-icon="mdi-check-circle"
+          >
+            {{ $t('obhod.compatOk') }}
+          </v-chip>
+          <v-chip
+            v-else
+            size="x-small"
+            :color="checks[item.id].some(c => c.level == 'bad') ? 'error' : 'warning'"
+            variant="tonal"
+            prepend-icon="mdi-alert"
+          >
+            {{ $t('obhod.compatIssues', { n: checks[item.id].length }) }}
+            <v-tooltip
+              activator="parent"
+              location="bottom"
+              max-width="380"
+            >
+              <div
+                v-for="c in checks[item.id]"
+                :key="c.code"
+                class="mb-1"
+              >
+                • {{ c.text }}
+              </div>
+            </v-tooltip>
+          </v-chip>
+        </div>
         <v-card-text>
           <v-row>
             <v-col>{{ $t('in.addr') }}</v-col>
@@ -216,10 +249,22 @@ import Data from '@/store/modules/data'
 import InboundVue from '@/layouts/modals/Inbound.vue'
 import Stats from '@/layouts/modals/Stats.vue'
 import Sessions from '@/layouts/modals/Sessions.vue'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import HttpUtils from '@/plugins/httputil'
 import { createInbound, Inbound } from '@/types/inbounds'
 import { tls } from '@/types/tls'
 import RandomUtil from '@/plugins/randomUtil'
+
+// obhod: замечания совместимости с приложениями (allowInsecure, VLESS без TLS, сертификат не на то имя...)
+interface InboundCheck { level: string, code: string, text: string }
+const checks = ref<Record<number, InboundCheck[]>>({})
+const loadChecks = async () => {
+  const msg = await HttpUtils.get<Record<number, InboundCheck[]>>('api/inboundChecks')
+  if (msg.success) checks.value = msg.obj ?? {}
+}
+loadChecks()
+watch(() => Data().inbounds, loadChecks, { deep: true })
+watch(() => Data().tlsConfigs, loadChecks, { deep: true })
 
 const inbounds = computed((): Inbound[] => {
   return <Inbound[]> Data().inbounds

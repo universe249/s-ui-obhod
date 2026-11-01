@@ -255,6 +255,17 @@ export default {
     clashUdp: "Включить UDP по умолчанию",
   },
   obhod: {
+    compatOk: "Приложения ✓",
+    compatIssues: "Замечаний: {n}",
+    cert: "Сертификат",
+    certExpired: "истёк",
+    selfSigned: "самоподписанный",
+    certUntil: "до {d} ({n} дн.)",
+    publicHost: "Публичный адрес сервера",
+    publicHostHint: "Подставляется во все ссылки и подписки вместо адреса, с которого открыта панель",
+    problems: "Требует внимания",
+    inboundsBad: "Входящих, которые часть приложений не примет: {n}",
+    certSoon: "Сертификат «{name}»: {text}",
     brand: "Обход · панель",
   },
   client: {

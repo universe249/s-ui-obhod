@@ -88,6 +88,7 @@ var defaultValueMap = map[string]string{
 	"subUpdates":          "12",
 	"deviceRotateHours":   "0",
 	"deviceGraceHours":    "24",
+	"publicHost":          "",
 	"deviceWebhook":       "",
 	"deviceWebhookSecret": "",
 	"subEncode":           "true",
@@ -605,4 +606,15 @@ func (s *SettingService) GetDeviceRotateHours() (int, error) {
 // GetDeviceGraceHours (obhod): сколько часов после смены ещё работает старый ключ устройства.
 func (s *SettingService) GetDeviceGraceHours() (int, error) {
 	return s.getInt("deviceGraceHours")
+}
+
+// PublicHost (obhod): адрес сервера для ссылок и подписок (например hoop.example.ru). Пусто — как в оригинале:
+// адрес, с которого открыта панель. Читается в той же транзакции, что и сохранение настроек.
+func (s *SettingService) PublicHost(tx *gorm.DB) string {
+	var v string
+	if tx == nil {
+		tx = database.GetDB()
+	}
+	tx.Model(model.Setting{}).Select("value").Where("key = ?", "publicHost").Scan(&v)
+	return strings.TrimSpace(v)
 }

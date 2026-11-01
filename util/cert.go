@@ -141,3 +141,6 @@ func GetTlsPing(domain string, port string) (any, error) {
 	return leafObj, nil
 
 }
+
+// CertLeaf (obhod) — первый сертификат из PEM (nil — не разобрать).
+func CertLeaf(pemData string) *x509.Certificate { return parseLeafCert(pemData) }

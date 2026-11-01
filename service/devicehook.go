@@ -76,3 +76,32 @@ func sendDeviceWebhook(client *model.Client, dev *model.Device, e *model.DeviceE
 	}
 	logger.Warning("device webhook: not delivered (", e.Kind, ")")
 }
+
+// SendPanelEvent (obhod) — событие панели, не связанное с устройствами (например, истекающий сертификат),
+// на тот же адрес уведомлений.
+func SendPanelEvent(kind string, data map[string]interface{}) {
+	var set SettingService
+	url, _ := set.getString("deviceWebhook")
+	if url == "" {
+		return
+	}
+	secret, _ := set.getString("deviceWebhookSecret")
+	payload := map[string]interface{}{"kind": kind, "at": time.Now().Unix()}
+	for k, v := range data {
+		payload[k] = v
+	}
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if secret != "" {
+		req.Header.Set("X-Obhod-Secret", secret)
+	}
+	if resp, err := hookClient.Do(req); err == nil {
+		resp.Body.Close()
+	} else {
+		logger.Warning("panel webhook: ", err)
+	}
+}

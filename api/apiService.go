@@ -579,3 +579,17 @@ func (a *ApiService) SetDeviceLimit(c *gin.Context) {
 	var ds service.DeviceService
 	jsonMsg(c, "deviceLimit", ds.SetLimit(formUint(c, "c"), formInt(c, "limit", -1)))
 }
+
+// GetInboundChecks — замечания совместимости: GET inboundChecks → {id входящего: [{level, code, text}]}.
+func (a *ApiService) GetInboundChecks(c *gin.Context) {
+	var in service.InboundService
+	r, err := in.Checks()
+	jsonObj(c, r, err)
+}
+
+// GetCerts — сертификаты TLS-шаблонов со сроками: GET certs.
+func (a *ApiService) GetCerts(c *gin.Context) {
+	var in service.InboundService
+	r, err := in.Certs()
+	jsonObj(c, r, err)
+}

@@ -71,6 +71,18 @@
               </template>
             </v-col>
           </v-row>
+          <v-row v-if="certs[item.id]">
+            <v-col cols="12">
+              {{ $t('obhod.cert') }}:
+              <span :class="'text-' + certColor(certs[item.id])">{{ certText(certs[item.id]) }}</span>
+              <div
+                v-if="certs[item.id].names?.length"
+                class="text-caption text-medium-emphasis"
+              >
+                {{ certs[item.id].names.join(', ') }}
+              </div>
+            </v-col>
+          </v-row>
           <v-row>
             <v-col>{{ $t('tls.provider.title') }}</v-col>
             <v-col>{{ item.server?.certificate_provider ?? '-' }}</v-col>
@@ -333,6 +345,8 @@ import TlsVue from '@/layouts/modals/Tls.vue'
 import CertProviderVue from '@/layouts/modals/CertProvider.vue'
 import Data from '@/store/modules/data'
 import { computed, ref } from 'vue'
+import HttpUtils from '@/plugins/httputil'
+import { i18n } from '@/locales'
 import { Inbound } from '@/types/inbounds'
 import { tls, certProvider } from '@/types/tls'
 import { Config } from '@/types/config'
@@ -340,6 +354,25 @@ import { Config } from '@/types/config'
 // Certificate providers are not part of the generated Config type yet, so the
 // config is read through a view of it that adds them.
 type ConfigWithProviders = Config & { certificate_providers?: certProvider[] }
+
+// obhod: сроки сертификатов
+interface CertInfo { tlsId: number, names: string[], notAfter: number, daysLeft: number, selfSigned: boolean, source: string, error?: string }
+const certs = ref<Record<number, CertInfo>>({})
+const loadCerts = async () => {
+  const msg = await HttpUtils.get<CertInfo[]>('api/certs')
+  const m: Record<number, CertInfo> = {}
+  for (const c of msg.obj ?? []) m[c.tlsId] = c
+  certs.value = m
+}
+loadCerts()
+const certColor = (c: CertInfo): string => c.error || c.daysLeft < 0 ? 'error' : c.daysLeft < 14 || c.selfSigned ? 'warning' : 'success'
+const certText = (c: CertInfo): string => {
+  if (c.error) return c.error
+  if (c.source == 'acme') return 'ACME'
+  if (c.daysLeft < 0) return i18n.global.t('obhod.certExpired')
+  const d = new Date(c.notAfter * 1000).toLocaleDateString()
+  return (c.selfSigned ? i18n.global.t('obhod.selfSigned') + ' · ' : '') + i18n.global.t('obhod.certUntil', { d, n: c.daysLeft })
+}
 
 const tlsConfigs = computed((): tls[] => {
   return Data().tlsConfigs

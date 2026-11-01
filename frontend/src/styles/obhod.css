@@ -130,3 +130,8 @@ body:has(.v-theme--light)::before { opacity: .75; }
 .ob-hero img { filter: drop-shadow(0 10px 24px rgba(45, 212, 167, .45)); }
 .ob-hero-img, .ob-hero img { border-radius: 50%; }
 .ob-hero-img { filter: drop-shadow(0 10px 24px rgba(45, 212, 167, .45)); }
+
+/* меню, раскрытое наведением, — непрозрачное: оно ложится поверх карточек */
+.v-application .v-navigation-drawer.v-navigation-drawer--is-hovering,
+.v-application .v-navigation-drawer.v-navigation-drawer--temporary { background: var(--ob-solid) !important; }
+.ob-hero { border-radius: 50%; overflow: hidden; }

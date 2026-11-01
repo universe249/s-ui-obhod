@@ -129,6 +129,10 @@ func (a *APIHandler) getHandler(c *gin.Context) {
 		a.ApiService.GetDeviceSummary(c)
 	case "clientInfo":
 		a.ApiService.GetClientInfo(c)
+	case "inboundChecks":
+		a.ApiService.GetInboundChecks(c)
+	case "certs":
+		a.ApiService.GetCerts(c)
 	default:
 		jsonMsg(c, "failed", common.NewError("unknown action: ", action))
 	}
