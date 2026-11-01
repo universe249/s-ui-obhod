@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alireza0/s-ui/database"
 	"github.com/alireza0/s-ui/database/model"
@@ -264,14 +265,65 @@ func (s *InboundService) fetchUsers(db *gorm.DB, inboundType string, condition s
 		inboundType = util.ShadowsocksClientConfigKey(method)
 	}
 
-	var users []string
-
+	type userRow struct {
+		Id          uint
+		Name        string
+		DeviceLimit int
+		Cfg         string
+	}
+	var rows []userRow
 	err := db.Raw(
-		fmt.Sprintf(`SELECT json_extract(clients.config, "$.%s")
+		fmt.Sprintf(`SELECT id, name, device_limit, json_extract(clients.config, "$.%s") AS cfg
 		FROM clients WHERE enable = true AND %s`,
-			inboundType, condition), args...).Scan(&users).Error
+			inboundType, condition), args...).Scan(&rows).Error
 	if err != nil {
 		return nil, err
+	}
+	// obhod: у клиентов в режиме устройств вместо общего ключа — по пользователю на устройство
+	deviceMode := perDeviceProto(inboundType)
+	devices := map[uint][]model.Device{}
+	if deviceMode {
+		var ids []uint
+		for _, r := range rows {
+			if r.DeviceLimit > 0 {
+				ids = append(ids, r.Id)
+			}
+		}
+		if len(ids) > 0 {
+			var devs []model.Device
+			if err := db.Where("client_id IN ?", ids).Order("id").Find(&devs).Error; err != nil {
+				return nil, err
+			}
+			for _, d := range devs {
+				devices[d.ClientId] = append(devices[d.ClientId], d)
+			}
+		}
+	}
+	now := time.Now().Unix()
+	var users []string
+	for _, r := range rows {
+		if r.Cfg == "" {
+			continue
+		}
+		if !deviceMode || r.DeviceLimit <= 0 {
+			users = append(users, r.Cfg)
+			continue
+		}
+		var base map[string]interface{}
+		if json.Unmarshal([]byte(r.Cfg), &base) != nil {
+			continue
+		}
+		for i := range devices[r.Id] {
+			d := &devices[r.Id][i]
+			if b, err := json.Marshal(deviceUser(base, r.Name, d, false)); err == nil {
+				users = append(users, string(b))
+			}
+			if d.PrevUntil > now && d.PrevUuid != "" {
+				if b, err := json.Marshal(deviceUser(base, r.Name, d, true)); err == nil {
+					users = append(users, string(b))
+				}
+			}
+		}
 	}
 	stripVision := false
 	if inboundType == "vless" {
@@ -355,16 +407,36 @@ func (s *InboundService) initUsers(db *gorm.DB, inboundJson []byte, clientIds st
 }
 
 func (s *InboundService) enabledClientNames(tx *gorm.DB, inboundId uint) (map[string]struct{}, error) {
-	var names []string
+	var rows []struct {
+		Id          uint
+		Name        string
+		DeviceLimit int
+	}
 	err := tx.Raw(
-		"SELECT clients.name FROM clients, json_each(clients.inbounds) AS je WHERE je.value = ? AND clients.enable = true",
-		inboundId).Scan(&names).Error
+		"SELECT clients.id, clients.name, clients.device_limit FROM clients, json_each(clients.inbounds) AS je WHERE je.value = ? AND clients.enable = true",
+		inboundId).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
-	keep := make(map[string]struct{}, len(names))
-	for _, name := range names {
-		keep[name] = struct{}{}
+	keep := make(map[string]struct{}, len(rows))
+	var devClients []uint
+	byId := map[uint]string{}
+	for _, r := range rows {
+		keep[r.Name] = struct{}{}
+		if r.DeviceLimit > 0 {
+			devClients = append(devClients, r.Id)
+			byId[r.Id] = r.Name
+		}
+	}
+	// obhod: пользователи устройств — «<клиент>~d<id>»; удалённых устройств здесь нет, их соединения закроются
+	if len(devClients) > 0 {
+		var devs []model.Device
+		if err := tx.Where("client_id IN ?", devClients).Find(&devs).Error; err != nil {
+			return nil, err
+		}
+		for _, d := range devs {
+			keep[DeviceUserName(byId[d.ClientId], d.Id)] = struct{}{}
+		}
 	}
 	return keep, nil
 }

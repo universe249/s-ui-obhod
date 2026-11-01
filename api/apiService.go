@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/alireza0/s-ui/database"
@@ -490,4 +491,66 @@ func (a *ApiService) GetCertPing(c *gin.Context) {
 	port := c.PostForm("port")
 	tlsPing, err := util.GetTlsPing(domain, port)
 	jsonObj(c, tlsPing, err)
+}
+
+// ---- obhod: устройства клиентов ----
+
+func formUint(c *gin.Context, key string) uint {
+	v := c.PostForm(key)
+	if v == "" {
+		v = c.Query(key)
+	}
+	n, _ := strconv.ParseUint(v, 10, 32)
+	return uint(n)
+}
+
+func formInt(c *gin.Context, key string, def int) int {
+	v := c.PostForm(key)
+	if v == "" {
+		v = c.Query(key)
+	}
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return def
+	}
+	return n
+}
+
+// GetDevices — устройства клиента: GET devices?c=<id клиента>.
+func (a *ApiService) GetDevices(c *gin.Context) {
+	var ds service.DeviceService
+	devs, err := ds.List(formUint(c, "c"))
+	jsonObj(c, devs, err)
+}
+
+// DeleteDevices — POST deviceDel, ids=1,2,3: ключи перестают работать, соединения рвутся.
+func (a *ApiService) DeleteDevices(c *gin.Context) {
+	var ids []uint
+	for _, p := range strings.Split(c.PostForm("ids"), ",") {
+		if n, err := strconv.ParseUint(strings.TrimSpace(p), 10, 32); err == nil && n > 0 {
+			ids = append(ids, uint(n))
+		}
+	}
+	if len(ids) == 0 {
+		jsonMsg(c, "deviceDel", common.NewError("no device ids"))
+		return
+	}
+	var ds service.DeviceService
+	jsonMsg(c, "deviceDel", ds.Delete(ids))
+}
+
+// RotateDevices — POST deviceRotate, c=<клиент, 0 — все>, grace=<часов работы старых ключей, 0 — сразу>.
+func (a *ApiService) RotateDevices(c *gin.Context) {
+	var ds service.DeviceService
+	n, err := ds.Rotate(formUint(c, "c"), formInt(c, "grace", 24))
+	jsonObj(c, map[string]int{"rotated": n}, err)
+}
+
+// SetDeviceLimit — POST deviceLimit, c=<клиент>, limit=<0..100>.
+func (a *ApiService) SetDeviceLimit(c *gin.Context) {
+	var ds service.DeviceService
+	jsonMsg(c, "deviceLimit", ds.SetLimit(formUint(c, "c"), formInt(c, "limit", -1)))
 }

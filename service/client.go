@@ -54,6 +54,9 @@ func (s *ClientService) validateClientName(tx *gorm.DB, client *model.Client) er
 	if name == "" {
 		return common.NewError("client name must not be empty")
 	}
+	if strings.Contains(name, deviceSep) {
+		return common.NewErrorf("client name must not contain %q (reserved for devices)", deviceSep)
+	}
 	query := tx.Model(model.Client{}).Where("name = ?", name)
 	if client.Id != 0 {
 		query = query.Where("id != ?", client.Id)
@@ -89,6 +92,9 @@ func (s *ClientService) Save(tx *gorm.DB, act string, data json.RawMessage, host
 		err = s.updateLinksWithFixedInbounds(tx, []*model.Client{&client}, hostname)
 		if err != nil {
 			return nil, err
+		}
+		if act == "edit" && !jsonHasKey(data, "deviceLimit") {
+			keepDeviceLimit(tx, &client)
 		}
 		if act == "edit" {
 			// Find changed inbounds
@@ -159,6 +165,9 @@ func (s *ClientService) Save(tx *gorm.DB, act string, data json.RawMessage, host
 			if seen[client.Name] {
 				return nil, common.NewErrorf("duplicate client name %q in request", client.Name)
 			}
+			if !rawHasKey(data, len(seen), "deviceLimit") {
+				keepDeviceLimit(tx, client)
+			}
 			seen[client.Name] = true
 			changedInboundIds, err := s.findInboundsChanges(tx, client, true)
 			if err != nil {
@@ -205,6 +214,9 @@ func (s *ClientService) Save(tx *gorm.DB, act string, data json.RawMessage, host
 		if err != nil {
 			return nil, err
 		}
+		if err = tx.Where("client_id in ?", ids).Delete(model.Device{}).Error; err != nil {
+			return nil, err
+		}
 	case "del":
 		var id uint
 		err = json.Unmarshal(data, &id)
@@ -222,6 +234,9 @@ func (s *ClientService) Save(tx *gorm.DB, act string, data json.RawMessage, host
 		}
 		err = tx.Where("id = ?", id).Delete(model.Client{}).Error
 		if err != nil {
+			return nil, err
+		}
+		if err = tx.Where("client_id = ?", id).Delete(model.Device{}).Error; err != nil {
 			return nil, err
 		}
 	default:
@@ -735,10 +750,11 @@ func (s *ClientService) findInboundsChanges(tx *gorm.DB, client *model.Client, f
 		return nil, err
 	}
 
-	// Check client.Config changes
+	// Check client.Config changes (obhod: и смена режима устройств — меняется набор пользователей в ядре)
 	if !bytes.Equal(oldClient.Config, client.Config) ||
 		oldClient.Name != client.Name ||
-		oldClient.Enable != client.Enable {
+		oldClient.Enable != client.Enable ||
+		(oldClient.DeviceLimit > 0) != (client.DeviceLimit > 0) {
 		return common.UnionUintArray(oldInboundIds, newInboundIds), nil
 	}
 

@@ -18,12 +18,15 @@ type SubService struct {
 }
 
 func (s *SubService) GetSubs(subId string) (*string, []string, error) {
-	var err error
-
 	client, err := s.getClientBySubId(subId)
 	if err != nil {
 		return nil, nil, err
 	}
+	return s.GetSubsClient(client)
+}
+
+// GetSubsClient — подписка для уже найденного клиента (obhod: для устройства — клиент с его ключами).
+func (s *SubService) GetSubsClient(client *model.Client) (*string, []string, error) {
 
 	clientInfo := ""
 	subShowInfo, _ := s.SettingService.GetSubShowInfo()

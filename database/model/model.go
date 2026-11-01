@@ -52,7 +52,10 @@ type Client struct {
 	ResetDays  int   `json:"resetDays" form:"resetDays" gorm:"default:0;not null"`
 	NextReset  int64 `json:"nextReset" form:"nextReset" gorm:"default:0;not null"`
 	TotalUp    int64 `json:"totalUp" form:"totalUp" gorm:"default:0;not null"`
-	TotalDown  int64 `json:"totalDown" form:"totalDown" gorm:"default:0;not null"`
+	// DeviceLimit (obhod): 0 — как обычно, один общий ключ; N > 0 — подписку получают только приложения
+	// с заголовком x-hwid, не больше N устройств, у каждого свой ключ.
+	DeviceLimit int   `json:"deviceLimit" form:"deviceLimit" gorm:"default:0;not null"`
+	TotalDown   int64 `json:"totalDown" form:"totalDown" gorm:"default:0;not null"`
 }
 
 type Stats struct {

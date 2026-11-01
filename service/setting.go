@@ -86,6 +86,8 @@ var defaultValueMap = map[string]string{
 	"subCertFile":        "",
 	"subKeyFile":         "",
 	"subUpdates":         "12",
+	"deviceRotateHours":  "0",
+	"deviceGraceHours":   "24",
 	"subEncode":          "true",
 	"subShowInfo":        "false",
 	"subRemarkPrefix":    "true",
@@ -591,4 +593,14 @@ func (s *SettingService) SetMaintenance(enabled bool) error {
 func (s *SettingService) fileExists(path string) error {
 	_, err := os.Stat(path)
 	return err
+}
+
+// GetDeviceRotateHours (obhod): раз во сколько часов устройство получает новый ключ при скачивании подписки (0 — никогда).
+func (s *SettingService) GetDeviceRotateHours() (int, error) {
+	return s.getInt("deviceRotateHours")
+}
+
+// GetDeviceGraceHours (obhod): сколько часов после смены ещё работает старый ключ устройства.
+func (s *SettingService) GetDeviceGraceHours() (int, error) {
+	return s.getInt("deviceGraceHours")
 }

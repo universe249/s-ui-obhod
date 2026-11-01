@@ -32,13 +32,29 @@ func (s *SubHandler) subs(c *gin.Context) {
 	var result *string
 	var err error
 	subId := c.Param("subid")
+	client, refusal, err := resolveClient(subId, deviceInfo(c))
+	if err != nil {
+		logger.Error(err)
+		c.String(400, "Error!")
+		return
+	}
+	if refusal != nil {
+		refuse(c, refusal)
+		return
+	}
 	format, isFormat := c.GetQuery("format")
 	if isFormat {
+		inDatas, ierr := clientInboundsOf(client)
+		if ierr != nil {
+			logger.Error(ierr)
+			c.String(400, "Error!")
+			return
+		}
 		switch format {
 		case "json":
-			result, headers, err = s.JsonService.GetJson(subId, format)
+			result, headers, err = s.JsonService.GetJsonClient(client, inDatas, format)
 		case "clash":
-			result, headers, err = s.ClashService.GetClash(subId)
+			result, headers, err = s.ClashService.GetClashClient(client, inDatas)
 		}
 		if err != nil || result == nil {
 			logger.Error(err)
@@ -46,7 +62,7 @@ func (s *SubHandler) subs(c *gin.Context) {
 			return
 		}
 	} else {
-		result, headers, err = s.SubService.GetSubs(subId)
+		result, headers, err = s.SubService.GetSubsClient(client)
 		if err != nil || result == nil {
 			logger.Error(err)
 			c.String(400, "Error!")

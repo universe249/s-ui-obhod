@@ -49,12 +49,16 @@ type JsonService struct {
 }
 
 func (j *JsonService) GetJson(subId string, format string) (*string, []string, error) {
-	var jsonConfig map[string]interface{}
-
 	client, inDatas, err := j.getData(subId)
 	if err != nil {
 		return nil, nil, err
 	}
+	return j.GetJsonClient(client, inDatas, format)
+}
+
+// GetJsonClient — JSON-подписка для найденного клиента и его входящих.
+func (j *JsonService) GetJsonClient(client *model.Client, inDatas []*model.Inbound, format string) (*string, []string, error) {
+	var jsonConfig map[string]interface{}
 
 	outbounds, outTags, err := j.getOutbounds(client.Config, inDatas, nodeRemark(&j.SettingService, client))
 	if err != nil {
@@ -117,17 +121,28 @@ func (j *JsonService) getData(subId string) (*model.Client, []*model.Inbound, er
 	if err != nil {
 		return nil, nil, err
 	}
-	var clientInbounds []uint
-	err = json.Unmarshal(client.Inbounds, &clientInbounds)
-	if err != nil {
-		return nil, nil, err
-	}
-	var inbounds []*model.Inbound
-	err = db.Model(model.Inbound{}).Preload("Tls").Where("id in ?", clientInbounds).Find(&inbounds).Error
+	inbounds, err := clientInboundsOf(client)
 	if err != nil {
 		return nil, nil, err
 	}
 	return client, inbounds, nil
+}
+
+// clientInboundsOf — входящие клиента со сведениями о TLS.
+func clientInboundsOf(client *model.Client) ([]*model.Inbound, error) {
+	db := database.GetDB()
+	var err error
+	var clientInbounds []uint
+	err = json.Unmarshal(client.Inbounds, &clientInbounds)
+	if err != nil {
+		return nil, err
+	}
+	var inbounds []*model.Inbound
+	err = db.Model(model.Inbound{}).Preload("Tls").Where("id in ?", clientInbounds).Find(&inbounds).Error
+	if err != nil {
+		return nil, err
+	}
+	return inbounds, nil
 }
 
 func (j *JsonService) getOutbounds(clientConfig json.RawMessage, inbounds []*model.Inbound, clientRemark string) (*[]map[string]interface{}, *[]string, error) {

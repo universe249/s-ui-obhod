@@ -93,6 +93,7 @@ func (s *StatsService) SaveStats(enableTraffic bool, bucketSeconds int64) error 
 	// up+down collapse into a single UPDATE.
 	type traffic struct{ up, down int64 }
 	userTraffic := map[string]*traffic{}
+	deviceSeen := map[uint]bool{}
 	seenInbound := map[string]bool{}
 	seenOutbound := map[string]bool{}
 	for _, stat := range batch {
@@ -108,11 +109,17 @@ func (s *StatsService) SaveStats(enableTraffic bool, bucketSeconds int64) error 
 				online.Outbound = append(online.Outbound, stat.Tag)
 			}
 		case "user":
-			t, ok := userTraffic[stat.Tag]
+			// obhod: трафик устройства «<клиент>~d<id>» идёт в счёт клиента
+			name := stat.Tag
+			if owner, id, ok := DeviceOwner(stat.Tag); ok {
+				name = owner
+				deviceSeen[id] = true
+			}
+			t, ok := userTraffic[name]
 			if !ok {
 				t = &traffic{}
-				userTraffic[stat.Tag] = t
-				online.User = append(online.User, stat.Tag)
+				userTraffic[name] = t
+				online.User = append(online.User, name)
 			}
 			if stat.Direction {
 				t.up += stat.Traffic
@@ -132,6 +139,16 @@ func (s *StatsService) SaveStats(enableTraffic bool, bucketSeconds int64) error 
 		}
 		err = tx.Model(model.Client{}).Where("name = ?", name).Updates(update).Error
 		if err != nil {
+			return err
+		}
+	}
+
+	if len(deviceSeen) > 0 {
+		ids := make([]uint, 0, len(deviceSeen))
+		for id := range deviceSeen {
+			ids = append(ids, id)
+		}
+		if err = tx.Model(model.Device{}).Where("id IN ?", ids).Update("online_at", now).Error; err != nil {
 			return err
 		}
 	}

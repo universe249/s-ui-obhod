@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/alireza0/s-ui/database/model"
 	"github.com/alireza0/s-ui/logger"
 	"github.com/alireza0/s-ui/service"
 	"github.com/alireza0/s-ui/util"
@@ -72,11 +73,15 @@ func asBool(v interface{}) bool {
 }
 
 func (s *ClashService) GetClash(subId string) (*string, []string, error) {
-
 	client, inDatas, err := s.getData(subId)
 	if err != nil {
 		return nil, nil, err
 	}
+	return s.GetClashClient(client, inDatas)
+}
+
+// GetClashClient — Clash-подписка для найденного клиента и его входящих.
+func (s *ClashService) GetClashClient(client *model.Client, inDatas []*model.Inbound) (*string, []string, error) {
 
 	outbounds, outTags, err := s.getOutbounds(client.Config, inDatas, nodeRemark(&s.SettingService, client))
 	if err != nil {

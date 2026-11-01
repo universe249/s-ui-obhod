@@ -68,6 +68,12 @@ func (a *APIHandler) postHandler(c *gin.Context) {
 		a.ApiService.Upgrade(c)
 	case "getCertPing":
 		a.ApiService.GetCertPing(c)
+	case "deviceDel":
+		a.ApiService.DeleteDevices(c)
+	case "deviceRotate":
+		a.ApiService.RotateDevices(c)
+	case "deviceLimit":
+		a.ApiService.SetDeviceLimit(c)
 	default:
 		jsonMsg(c, "failed", common.NewError("unknown action: ", action))
 	}
@@ -115,6 +121,8 @@ func (a *APIHandler) getHandler(c *gin.Context) {
 		a.ApiService.GetSingboxConfig(c)
 	case "checkOutbound":
 		a.ApiService.GetCheckOutbound(c)
+	case "devices":
+		a.ApiService.GetDevices(c)
 	default:
 		jsonMsg(c, "failed", common.NewError("unknown action: ", action))
 	}
