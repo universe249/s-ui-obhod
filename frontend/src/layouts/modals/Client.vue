@@ -392,7 +392,10 @@
                     {{ [d.os, d.userAgent].filter(x => x).join(' · ') }}
                   </div>
                   <div class="text-caption text-medium-emphasis">
-                    {{ $t('client.added') }}: {{ fmtTime(d.createdAt) }} · {{ $t('client.lastSeen') }}: {{ fmtTime(d.lastSeen) }}
+                    {{ $t('client.added') }}: {{ fmtTime(d.createdAt) }} · {{ $t('client.lastSeen') }}: {{ fmtTime(d.lastSeen) }}<span v-if="d.lastIp"> · {{ d.lastIp }}</span>
+                  </div>
+                  <div class="text-caption text-medium-emphasis">
+                    {{ $t('client.traffic') }}: ↑{{ size(d.up) }} ↓{{ size(d.down) }}<span v-if="d.sessions > 0"> · {{ d.sessions }} {{ $t('client.conns') }} · {{ $t('client.ips') }}: {{ d.ips.join(', ') }}</span>
                   </div>
                 </v-col>
                 <v-col cols="auto">
@@ -415,6 +418,25 @@
                   >
                     {{ $t('client.rotate') }}
                   </v-btn>
+                </v-col>
+              </v-row>
+              <v-row v-if="events.length > 0">
+                <v-col>
+                  <div class="text-subtitle-2 mb-1">
+                    {{ $t('client.events') }}
+                  </div>
+                  <div
+                    v-for="e in events"
+                    :key="e.id"
+                    class="text-caption"
+                  >
+                    <v-icon
+                      size="x-small"
+                      :color="evColor(e.kind)"
+                      :icon="evIcon(e.kind)"
+                    />
+                    {{ fmtTime(e.at) }} — {{ $t('client.ev.' + e.kind) }}<span v-if="e.model || e.userAgent">: {{ e.model || e.userAgent }}</span><span v-if="e.ip"> ({{ e.ip }})</span><span v-if="e.actor && e.actor != 'auto'"> · {{ e.actor }}</span>
+                  </div>
                 </v-col>
               </v-row>
             </v-window-item>
@@ -507,7 +529,7 @@
 </template>
 
 <script lang="ts">
-import { createClient, randomConfigs, updateConfigs, Link, shuffleConfigs, Device } from '@/types/clients'
+import { createClient, randomConfigs, updateConfigs, Link, shuffleConfigs, Device, DeviceEvent } from '@/types/clients'
 import HttpUtils from '@/plugins/httputil'
 import DatePick from '@/components/DateTime.vue'
 import { HumanReadable } from '@/plugins/utils'
@@ -545,6 +567,7 @@ export default {
       extLinks: <Link[]>[],
       subLinks: <Link[]>[],
       devices: <Device[]>[],
+      events: <DeviceEvent[]>[],
     }
   },
   computed: {
@@ -630,6 +653,7 @@ export default {
       this.extLinks = this.client.links?.filter(l => l.type == 'external')?? []
       this.subLinks = this.client.links?.filter(l => l.type == 'sub')?? []
       this.devices = []
+      this.events = []
       if (id > 0) this.loadDevices()
       this.tab = "t1"
       this.loading = false
@@ -669,6 +693,15 @@ export default {
     async loadDevices() {
       const msg = await HttpUtils.get<Device[]>('api/devices', { c: this.$props.id })
       this.devices = msg.success && msg.obj ? msg.obj : []
+      const ev = await HttpUtils.get<DeviceEvent[]>('api/deviceEvents', { c: this.$props.id, n: 20 })
+      this.events = ev.success && ev.obj ? ev.obj : []
+    },
+    size(b: number): string { return HumanReadable.sizeFormat(b ?? 0) },
+    evIcon(k: string): string {
+      return ({ added: 'mdi-plus-circle', deleted: 'mdi-delete', rotated: 'mdi-key-change', limit: 'mdi-alert', nohwid: 'mdi-help-circle' } as Record<string, string>)[k] ?? 'mdi-circle-small'
+    },
+    evColor(k: string): string {
+      return ({ added: 'success', deleted: 'grey', rotated: 'info', limit: 'error', nohwid: 'warning' } as Record<string, string>)[k] ?? ''
     },
     async delDevice(id: number) {
       const msg = await HttpUtils.post('api/deviceDel', { ids: String(id) })

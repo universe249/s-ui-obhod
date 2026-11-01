@@ -44,6 +44,23 @@ export interface Device {
   onlineAt: number
   rotatedAt: number
   prevUntil: number
+  up: number
+  down: number
+  lastIp: string
+  sessions: number
+  ips: string[]
+}
+
+export interface DeviceEvent {
+  id: number
+  deviceId: number
+  kind: 'added' | 'deleted' | 'rotated' | 'limit' | 'nohwid'
+  hwid: string
+  model: string
+  userAgent: string
+  ip: string
+  actor: string
+  at: number
 }
 
 const defaultClient: Client = {

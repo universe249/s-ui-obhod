@@ -14,7 +14,14 @@
   `x-hwid-max-devices-reached`, `x-hwid-limit`, `x-hwid-not-supported` (как у Remnawave).
 - Трафик устройств идёт в счёт клиента.
 
-API (`/api` и `/apiv2`): `GET devices?c=<id>`, `POST deviceDel ids=1,2`, `POST deviceRotate c=<id|0> grace=<часы>`,
+- Журнал устройств (добавлено, удалено, ключи сменены, попытка сверх лимита, приложение без ID) с моделью,
+  приложением и адресом; трафик и текущие соединения (с адресами) по каждому устройству.
+- Уведомления: `deviceWebhook` + `deviceWebhookSecret` — JSON о каждом событии (заголовок `X-Obhod-Secret`).
+- Интерфейс: колонка «Устройства n/лимит» и значок попыток сверх лимита за сутки, фильтр по ним,
+  вкладка «Устройства» с журналом, раздел настроек смены ключей и уведомлений.
+
+API (`/api` и `/apiv2`): `GET clientInfo?name=<имя>` (клиент + устройства + журнал одним ответом),
+`GET deviceSummary`, `GET deviceEvents?c=<id>&n=<сколько>`, `GET devices?c=<id>`, `POST deviceDel ids=1,2`, `POST deviceRotate c=<id|0> grace=<часы>`,
 `POST deviceLimit c=<id> limit=<0..100>`.
 
 Сборка: `(cd frontend && npm ci && npm run build) && cp -R frontend/dist/* web/html/`, затем

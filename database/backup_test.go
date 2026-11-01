@@ -34,6 +34,7 @@ func seedEveryTable(t *testing.T) {
 		&model.Client{Name: "someone", Enable: true, Config: json.RawMessage(`{}`), Inbounds: json.RawMessage(`[]`), Links: json.RawMessage(`[]`)},
 		&model.Changes{DateTime: 1, Actor: "admin", Key: "clients", Action: "new", Obj: json.RawMessage(`"someone"`)},
 		&model.Device{ClientId: 1, Hwid: "hwid-fixture", Uuid: "u", Password: "p"},
+		&model.DeviceEvent{ClientId: 1, Kind: "added", Hwid: "hwid-fixture", At: 1},
 	}
 	for _, row := range rows {
 		if err := db.Create(row).Error; err != nil {

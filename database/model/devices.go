@@ -22,4 +22,23 @@ type Device struct {
 	LastSeen     int64  `json:"lastSeen" gorm:"default:0;not null"` // последнее скачивание подписки
 	OnlineAt     int64  `json:"onlineAt" gorm:"default:0;not null"` // последний трафик
 	RotatedAt    int64  `json:"rotatedAt" gorm:"default:0;not null"`
+	// трафик устройства за всё время (байты)
+	Up   int64 `json:"up" gorm:"default:0;not null"`
+	Down int64 `json:"down" gorm:"default:0;not null"`
+	// адрес, с которого устройство последний раз скачивало подписку
+	LastIp string `json:"lastIp"`
+}
+
+// DeviceEvent — журнал: устройство добавлено/удалено, ключи сменены, попытка сверх лимита или без x-hwid.
+type DeviceEvent struct {
+	Id        uint   `json:"id" gorm:"primaryKey;autoIncrement"`
+	ClientId  uint   `json:"clientId" gorm:"index;not null"`
+	DeviceId  uint   `json:"deviceId"`
+	Kind      string `json:"kind" gorm:"index"` // added | deleted | rotated | limit | nohwid
+	Hwid      string `json:"hwid"`
+	Model     string `json:"model"`
+	UserAgent string `json:"userAgent"`
+	Ip        string `json:"ip"`
+	Actor     string `json:"actor"` // кто удалил/сменил: логин панели, auto или токен API
+	At        int64  `json:"at" gorm:"index;not null"`
 }

@@ -32,7 +32,7 @@ var ErrNoHwid = errors.New("hwid required")
 
 // DeviceInfo — что приложение сообщает о себе в заголовках подписки.
 type DeviceInfo struct {
-	Hwid, Model, Os, UserAgent string
+	Hwid, Model, Os, UserAgent, Ip string
 }
 
 // DeviceUserName — имя пользователя устройства в ядре.
@@ -223,6 +223,9 @@ func (s *DeviceService) Register(client *model.Client, info DeviceInfo) (dev *mo
 		if v := clip(info.UserAgent, 120); v != "" {
 			d.UserAgent = v
 		}
+		if info.Ip != "" {
+			d.LastIp = clip(info.Ip, 45)
+		}
 		d.LastSeen = now
 		if !changed {
 			rot, _ := s.GetDeviceRotateHours()
@@ -239,8 +242,18 @@ func (s *DeviceService) Register(client *model.Client, info DeviceInfo) (dev *mo
 		dev = &d
 		return nil
 	})
+	if errors.Is(err, ErrDeviceLimit) {
+		LogDeviceEvent(client, nil, "limit", info, "")
+	}
 	if err != nil {
 		return nil, false, err
+	}
+	if changed {
+		kind := "rotated"
+		if dev.CreatedAt == now {
+			kind = "added"
+		}
+		LogDeviceEvent(client, dev, kind, info, "auto")
 	}
 	return dev, changed, nil
 }
@@ -278,7 +291,7 @@ func ApplyClient(clientId uint) error {
 }
 
 // Delete удаляет устройства: их ключи перестают работать, соединения рвутся сразу.
-func (s *DeviceService) Delete(ids []uint) error {
+func (s *DeviceService) Delete(ids []uint, actor string) error {
 	db := database.GetDB()
 	var devs []model.Device
 	if err := db.Where("id IN ?", ids).Find(&devs).Error; err != nil {
@@ -297,10 +310,12 @@ func (s *DeviceService) Delete(ids []uint) error {
 		}
 	}
 	var st StatsService
-	for _, d := range devs {
+	for i := range devs {
+		d := &devs[i]
 		var c model.Client
 		if db.Where("id = ?", d.ClientId).First(&c).Error == nil {
 			_ = st.CloseUserSessions(DeviceUserName(c.Name, d.Id))
+			LogDeviceEvent(&c, d, "deleted", DeviceInfo{}, actor)
 		}
 	}
 	return nil
@@ -308,7 +323,7 @@ func (s *DeviceService) Delete(ids []uint) error {
 
 // Rotate немедленно меняет ключи устройств клиента (clientId=0 — всех). Прежние ключи действуют grace часов;
 // при grace=0 они перестают работать сразу, и соединения со старыми ключами рвутся.
-func (s *DeviceService) Rotate(clientId uint, graceHours int) (int, error) {
+func (s *DeviceService) Rotate(clientId uint, graceHours int, actor string) (int, error) {
 	db := database.GetDB()
 	q := db.Model(model.Device{})
 	if clientId > 0 {
@@ -336,6 +351,14 @@ func (s *DeviceService) Rotate(clientId uint, graceHours int) (int, error) {
 	for id := range clients {
 		if err := ApplyClient(id); err != nil {
 			return 0, err
+		}
+		var cl model.Client
+		if db.Where("id = ?", id).First(&cl).Error == nil {
+			for i := range devs {
+				if devs[i].ClientId == id {
+					LogDeviceEvent(&cl, &devs[i], "rotated", DeviceInfo{}, actor)
+				}
+			}
 		}
 		if graceHours <= 0 {
 			var c model.Client
@@ -417,4 +440,191 @@ func keepDeviceLimit(tx *gorm.DB, client *model.Client) {
 	if tx.Model(model.Client{}).Select("device_limit").Where("id = ?", client.Id).First(&old).Error == nil {
 		client.DeviceLimit = old.DeviceLimit
 	}
+}
+
+// ---- журнал, сводка и уведомления ----
+
+// LogDeviceEvent пишет событие в журнал и отправляет уведомление (если задан адрес). Повторы «limit»/«nohwid»
+// от одного устройства чаще раза в 10 минут не пишем: приложение может обновлять подписку в цикле.
+func LogDeviceEvent(client *model.Client, dev *model.Device, kind string, info DeviceInfo, actor string) {
+	db := database.GetDB()
+	now := time.Now().Unix()
+	e := model.DeviceEvent{ClientId: client.Id, Kind: kind, Hwid: clip(info.Hwid, 64), Model: clip(info.Model, 80),
+		UserAgent: clip(info.UserAgent, 120), Ip: clip(info.Ip, 45), Actor: clip(actor, 40), At: now}
+	if dev != nil {
+		e.DeviceId = dev.Id
+		if e.Hwid == "" {
+			e.Hwid = dev.Hwid
+		}
+		if e.Model == "" {
+			e.Model = dev.Model
+		}
+		if e.UserAgent == "" {
+			e.UserAgent = dev.UserAgent
+		}
+	}
+	if kind == "limit" || kind == "nohwid" {
+		var n int64
+		db.Model(model.DeviceEvent{}).Where("client_id = ? AND kind = ? AND hwid = ? AND at > ?", client.Id, kind, e.Hwid, now-600).Count(&n)
+		if n > 0 {
+			return
+		}
+	}
+	if err := db.Create(&e).Error; err != nil {
+		logger.Warning("devices: event: ", err)
+		return
+	}
+	go sendDeviceWebhook(client, dev, &e)
+}
+
+// Events — последние события устройств клиента (clientId=0 — всех).
+func (s *DeviceService) Events(clientId uint, limit int) ([]model.DeviceEvent, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 50
+	}
+	q := database.GetDB().Model(model.DeviceEvent{})
+	if clientId > 0 {
+		q = q.Where("client_id = ?", clientId)
+	}
+	var out []model.DeviceEvent
+	err := q.Order("id desc").Limit(limit).Find(&out).Error
+	return out, err
+}
+
+// DeviceView — устройство с живыми данными ядра: сколько сейчас соединений и с каких адресов.
+type DeviceView struct {
+	model.Device
+	Sessions int      `json:"sessions"`
+	Ips      []string `json:"ips"`
+}
+
+// Views — устройства клиента с текущими соединениями.
+func (s *DeviceService) Views(client *model.Client) ([]DeviceView, error) {
+	devs, err := s.List(client.Id)
+	if err != nil {
+		return nil, err
+	}
+	byUser := map[string][]string{}
+	var st StatsService
+	if sessions, err := st.GetSessions("", ""); err == nil {
+		for _, ss := range sessions {
+			if _, _, ok := DeviceOwner(ss.User); ok {
+				byUser[ss.User] = append(byUser[ss.User], hostOnly(ss.Source))
+			}
+		}
+	}
+	out := make([]DeviceView, 0, len(devs))
+	for _, d := range devs {
+		srcs := byUser[DeviceUserName(client.Name, d.Id)]
+		v := DeviceView{Device: d, Sessions: len(srcs), Ips: uniq(srcs, 5)}
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+func hostOnly(addr string) string {
+	if i := strings.LastIndex(addr, ":"); i > 0 {
+		return strings.Trim(addr[:i], "[]")
+	}
+	return addr
+}
+
+func uniq(in []string, max int) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, s := range in {
+		if s != "" && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+			if len(out) >= max {
+				break
+			}
+		}
+	}
+	return out
+}
+
+// ClientDeviceSummary — для списка клиентов: сколько устройств и сколько попыток сверх лимита за сутки.
+type ClientDeviceSummary struct {
+	Devices      int   `json:"devices"`
+	Limit        int   `json:"limit"`
+	LimitHits24h int   `json:"limitHits24h"`
+	LastAdded    int64 `json:"lastAdded"`
+}
+
+func (s *DeviceService) Summary() (map[uint]ClientDeviceSummary, error) {
+	db := database.GetDB()
+	out := map[uint]ClientDeviceSummary{}
+	var clients []model.Client
+	if err := db.Model(model.Client{}).Select("id", "device_limit").Where("device_limit > 0").Find(&clients).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range clients {
+		out[c.Id] = ClientDeviceSummary{Limit: c.DeviceLimit}
+	}
+	var counts []struct {
+		ClientId  uint
+		N         int
+		LastAdded int64
+	}
+	db.Model(model.Device{}).Select("client_id, count(*) as n, max(created_at) as last_added").Group("client_id").Scan(&counts)
+	for _, r := range counts {
+		v := out[r.ClientId]
+		v.Devices, v.LastAdded = r.N, r.LastAdded
+		out[r.ClientId] = v
+	}
+	var hits []struct {
+		ClientId uint
+		N        int
+	}
+	db.Model(model.DeviceEvent{}).Select("client_id, count(*) as n").Where("kind = ? AND at > ?", "limit", time.Now().Unix()-86400).Group("client_id").Scan(&hits)
+	for _, r := range hits {
+		v := out[r.ClientId]
+		v.LimitHits24h = r.N
+		out[r.ClientId] = v
+	}
+	return out, nil
+}
+
+// ClientInfo — всё о клиенте одним ответом (для бота): учётная запись, устройства, последние события.
+type ClientInfo struct {
+	Id           uint                `json:"id"`
+	Name         string              `json:"name"`
+	Enable       bool                `json:"enable"`
+	Volume       int64               `json:"volume"`
+	Used         int64               `json:"used"`
+	Expiry       int64               `json:"expiry"`
+	OnlineAt     int64               `json:"onlineAt"`
+	DeviceLimit  int                 `json:"deviceLimit"`
+	Devices      []DeviceView        `json:"devices"`
+	Events       []model.DeviceEvent `json:"events"`
+	LimitHits24h int                 `json:"limitHits24h"`
+}
+
+func (s *DeviceService) ClientInfo(id uint, name string) (*ClientInfo, error) {
+	db := database.GetDB()
+	var c model.Client
+	q := db.Model(model.Client{})
+	if id > 0 {
+		q = q.Where("id = ?", id)
+	} else {
+		q = q.Where("name = ?", name)
+	}
+	if err := q.First(&c).Error; err != nil {
+		return nil, err
+	}
+	views, err := s.Views(&c)
+	if err != nil {
+		return nil, err
+	}
+	evs, _ := s.Events(c.Id, 20)
+	var hits int64
+	db.Model(model.DeviceEvent{}).Where("client_id = ? AND kind = ? AND at > ?", c.Id, "limit", time.Now().Unix()-86400).Count(&hits)
+	return &ClientInfo{Id: c.Id, Name: c.Name, Enable: c.Enable, Volume: c.Volume, Used: c.Up + c.Down, Expiry: c.Expiry,
+		OnlineAt: c.OnlineAt, DeviceLimit: c.DeviceLimit, Devices: views, Events: evs, LimitHits24h: int(hits)}, nil
+}
+
+// PruneEvents удаляет записи журнала старше 90 дней.
+func (s *DeviceService) PruneEvents() {
+	database.GetDB().Where("at < ?", time.Now().Unix()-90*86400).Delete(model.DeviceEvent{})
 }

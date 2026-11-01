@@ -97,7 +97,7 @@ func TestSubDeviceMode(t *testing.T) {
 		t.Fatalf("devices: %+v", devs)
 	}
 	// удалили первое — место освободилось
-	if err := ds.Delete([]uint{devs[0].Id}); err != nil {
+	if err := ds.Delete([]uint{devs[0].Id}, "test"); err != nil {
 		t.Fatal(err)
 	}
 	if w, _ := fetch(t, r, "hwid-cccccc"); w.Header().Get("x-hwid-max-devices-reached") != "" {
@@ -133,5 +133,62 @@ func TestSubDeviceRotation(t *testing.T) {
 	db.Where("id = ?", d.Id).First(&d)
 	if d.PrevUuid != "" || d.PrevUntil != 0 {
 		t.Fatal("prev keys not dropped")
+	}
+}
+
+func TestDeviceEventsSummaryAndWebhook(t *testing.T) {
+	got := make(chan map[string]interface{}, 10)
+	hook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Obhod-Secret") != "s3cret" {
+			w.WriteHeader(403)
+			return
+		}
+		var p map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&p)
+		got <- p
+	}))
+	defer hook.Close()
+	r, c := devTestSetup(t, 1)
+	db := database.GetDB()
+	db.Create(&model.Setting{Key: "deviceWebhook", Value: hook.URL})
+	db.Create(&model.Setting{Key: "deviceWebhookSecret", Value: "s3cret"})
+
+	fetch(t, r, "hwid-aaaaaa")
+	fetch(t, r, "hwid-bbbbbb") // сверх лимита
+	fetch(t, r, "hwid-bbbbbb") // повтор в течение 10 минут — в журнал не пишется
+	kinds := map[string]int{}
+	for i := 0; i < 2; i++ {
+		select {
+		case p := <-got:
+			kinds[p["kind"].(string)]++
+			if cl := p["client"].(map[string]interface{}); cl["name"] != "alice" {
+				t.Fatalf("payload %v", p)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("webhook not delivered, got %v", kinds)
+		}
+	}
+	if kinds["added"] != 1 || kinds["limit"] != 1 {
+		t.Fatalf("webhook kinds %v", kinds)
+	}
+	var ds service.DeviceService
+	evs, _ := ds.Events(c.Id, 10)
+	if len(evs) != 2 || evs[0].Kind != "limit" || evs[1].Kind != "added" || evs[1].Model != "iPhone 15" {
+		t.Fatalf("events %+v", evs)
+	}
+	sum, _ := ds.Summary()
+	if s := sum[c.Id]; s.Devices != 1 || s.Limit != 1 || s.LimitHits24h != 1 {
+		t.Fatalf("summary %+v", sum)
+	}
+	info, err := ds.ClientInfo(0, "alice")
+	if err != nil || len(info.Devices) != 1 || info.LimitHits24h != 1 || len(info.Events) != 2 || info.Devices[0].LastIp == "" {
+		t.Fatalf("clientInfo %+v %v", info, err)
+	}
+	if err := ds.Delete([]uint{info.Devices[0].Id}, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	evs, _ = ds.Events(c.Id, 1)
+	if evs[0].Kind != "deleted" || evs[0].Actor != "admin" {
+		t.Fatalf("delete event %+v", evs[0])
 	}
 }

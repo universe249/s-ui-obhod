@@ -375,6 +375,64 @@
               />
             </v-col>
           </v-row>
+          <v-row>
+            <v-col cols="12">
+              <div class="text-subtitle-1">
+                {{ $t('client.devSettings') }}
+              </div>
+            </v-col>
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-text-field
+                v-model="settings.deviceRotateHours"
+                type="number"
+                min="0"
+                :label="$t('client.rotateHours')"
+                hide-details
+              />
+            </v-col>
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-text-field
+                v-model="settings.deviceGraceHours"
+                type="number"
+                min="0"
+                :label="$t('client.graceHours')"
+                hide-details
+              />
+            </v-col>
+          </v-row>
+          <v-row>
+            <v-col
+              cols="12"
+              md="5"
+            >
+              <v-text-field
+                v-model="settings.deviceWebhook"
+                :label="$t('client.webhook')"
+                :hint="$t('client.webhookHint')"
+                placeholder="https://bot.example/panel/hook"
+                persistent-hint
+              />
+            </v-col>
+            <v-col
+              cols="12"
+              md="3"
+            >
+              <v-text-field
+                v-model="settings.deviceWebhookSecret"
+                :label="$t('client.webhookSecret')"
+                type="password"
+                hide-details
+              />
+            </v-col>
+          </v-row>
         </v-window-item>
 
         <v-window-item value="t3">
@@ -421,6 +479,10 @@ const settings = ref({
 	subCertFile: "",
 	subKeyFile: "",
 	subUpdates: "12",
+	deviceRotateHours: "0",
+	deviceGraceHours: "24",
+	deviceWebhook: "",
+	deviceWebhookSecret: "",
 	subEncode: "true",
 	subShowInfo: "false",
 	subRemarkPrefix: "true",

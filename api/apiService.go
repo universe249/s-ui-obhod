@@ -519,15 +519,40 @@ func formInt(c *gin.Context, key string, def int) int {
 	return n
 }
 
-// GetDevices — устройства клиента: GET devices?c=<id клиента>.
+// GetDevices — устройства клиента с живыми соединениями: GET devices?c=<id клиента>.
 func (a *ApiService) GetDevices(c *gin.Context) {
 	var ds service.DeviceService
-	devs, err := ds.List(formUint(c, "c"))
-	jsonObj(c, devs, err)
+	info, err := ds.ClientInfo(formUint(c, "c"), "")
+	if err != nil {
+		jsonObj(c, nil, err)
+		return
+	}
+	jsonObj(c, info.Devices, nil)
+}
+
+// GetDeviceEvents — журнал: GET deviceEvents?c=<id, 0 — все>&n=<сколько>.
+func (a *ApiService) GetDeviceEvents(c *gin.Context) {
+	var ds service.DeviceService
+	evs, err := ds.Events(formUint(c, "c"), formInt(c, "n", 50))
+	jsonObj(c, evs, err)
+}
+
+// GetDeviceSummary — для списка клиентов: GET deviceSummary → {id клиента: {devices, limit, limitHits24h}}.
+func (a *ApiService) GetDeviceSummary(c *gin.Context) {
+	var ds service.DeviceService
+	sum, err := ds.Summary()
+	jsonObj(c, sum, err)
+}
+
+// GetClientInfo — всё о клиенте одним ответом (для бота): GET clientInfo?name=<имя> или ?c=<id>.
+func (a *ApiService) GetClientInfo(c *gin.Context) {
+	var ds service.DeviceService
+	info, err := ds.ClientInfo(formUint(c, "c"), c.Query("name"))
+	jsonObj(c, info, err)
 }
 
 // DeleteDevices — POST deviceDel, ids=1,2,3: ключи перестают работать, соединения рвутся.
-func (a *ApiService) DeleteDevices(c *gin.Context) {
+func (a *ApiService) DeleteDevices(c *gin.Context, actor string) {
 	var ids []uint
 	for _, p := range strings.Split(c.PostForm("ids"), ",") {
 		if n, err := strconv.ParseUint(strings.TrimSpace(p), 10, 32); err == nil && n > 0 {
@@ -539,13 +564,13 @@ func (a *ApiService) DeleteDevices(c *gin.Context) {
 		return
 	}
 	var ds service.DeviceService
-	jsonMsg(c, "deviceDel", ds.Delete(ids))
+	jsonMsg(c, "deviceDel", ds.Delete(ids, actor))
 }
 
 // RotateDevices — POST deviceRotate, c=<клиент, 0 — все>, grace=<часов работы старых ключей, 0 — сразу>.
-func (a *ApiService) RotateDevices(c *gin.Context) {
+func (a *ApiService) RotateDevices(c *gin.Context, actor string) {
 	var ds service.DeviceService
-	n, err := ds.Rotate(formUint(c, "c"), formInt(c, "grace", 24))
+	n, err := ds.Rotate(formUint(c, "c"), formInt(c, "grace", 24), actor)
 	jsonObj(c, map[string]int{"rotated": n}, err)
 }
 

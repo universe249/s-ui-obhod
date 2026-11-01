@@ -319,6 +319,42 @@
             </template>
           </div>
         </template>
+        <template #item.devices="{ item }">
+          <div
+            v-if="devSummary[item.id]"
+            class="text-start"
+          >
+            <v-chip
+              density="comfortable"
+              size="small"
+              :color="devSummary[item.id].devices >= devSummary[item.id].limit ? 'warning' : 'primary'"
+              variant="tonal"
+              link
+              prepend-icon="mdi-cellphone-link"
+              @click="showModal(item.id)"
+            >
+              {{ devSummary[item.id].devices }}/{{ devSummary[item.id].limit }}
+            </v-chip>
+            <v-chip
+              v-if="devSummary[item.id].limitHits24h > 0"
+              density="comfortable"
+              size="small"
+              color="error"
+              variant="flat"
+              class="ms-1"
+            >
+              +{{ devSummary[item.id].limitHits24h }}
+              <v-tooltip
+                activator="parent"
+                location="top"
+                :text="$t('client.limitHits')"
+              />
+            </v-chip>
+          </div>
+          <template v-else>
+            -
+          </template>
+        </template>
         <template #item.createdAt="{ item }">
           <div class="text-start">
             <template v-if="item.createdAt>0">
@@ -430,7 +466,7 @@ import Stats from '@/layouts/modals/Stats.vue'
 import Sessions from '@/layouts/modals/Sessions.vue'
 import { Client } from '@/types/clients'
 import { Inbound } from '@/types/inbounds'
-import { computed, ref } from 'vue'
+import { computed, ref, onBeforeUnmount } from 'vue'
 import { HumanReadable } from '@/plugins/utils'
 import { i18n, locale } from '@/locales'
 import { useDisplay } from 'vuetify'
@@ -486,6 +522,7 @@ const filterItems = [
   { title: i18n.global.t('disable'), value: 'disable' },
   { title: i18n.global.t('date.expired'), value: 'expired' },
   { title: i18n.global.t('online'), value: 'online' },
+  { title: i18n.global.t('client.limitHits'), value: 'limithits' },
 ]
 
 const headers = [
@@ -500,6 +537,7 @@ const headers = [
   { title: i18n.global.t('stats.volume'), key: 'volume', sortRaw: (a: Client, b: Client) => (a.up + a.down) - (b.up + b.down) },
   { title: i18n.global.t('date.expiry'), key: 'expiry' },
   { title: i18n.global.t('online'), key: 'online' },
+  { title: i18n.global.t('client.devices'), key: 'devices', sortable: false },
   { title: i18n.global.t('date.created'), key: 'createdAt' },
   { title: i18n.global.t('date.lastOnline'), key: 'onlineAt' },
   { key: 'data-table-group', width: 0 },
@@ -525,7 +563,19 @@ const showModal = async (id: number) => {
 }
 const closeModal = () => {
   modal.value.visible = false
+  loadDevSummary()
 }
+
+// obhod: устройства клиентов (сколько из лимита, попытки сверх лимита за сутки)
+interface DevSummary { devices: number, limit: number, limitHits24h: number, lastAdded: number }
+const devSummary = ref<Record<number, DevSummary>>({})
+const loadDevSummary = async () => {
+  const msg = await HttpUtils.get<Record<number, DevSummary>>('api/deviceSummary')
+  if (msg.success && msg.obj) devSummary.value = msg.obj
+}
+loadDevSummary()
+const devTimer = setInterval(loadDevSummary, 30000)
+onBeforeUnmount(() => clearInterval(devTimer))
 
 const toggling = ref<Record<number, boolean>>({})
 
@@ -608,6 +658,9 @@ const doFilter = () => {
       break
     case "online":
       filteredClients = filteredClients.filter(c => Data().onlines?.user?.includes(c.name))
+      break
+    case "limithits":
+      filteredClients = filteredClients.filter(c => (devSummary.value[c.id ?? 0]?.limitHits24h ?? 0) > 0)
       break
   }
   filterSettings.value.filteredClients = filteredClients

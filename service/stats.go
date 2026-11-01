@@ -94,6 +94,7 @@ func (s *StatsService) SaveStats(enableTraffic bool, bucketSeconds int64) error 
 	type traffic struct{ up, down int64 }
 	userTraffic := map[string]*traffic{}
 	deviceSeen := map[uint]bool{}
+	deviceTraffic := map[uint]*traffic{}
 	seenInbound := map[string]bool{}
 	seenOutbound := map[string]bool{}
 	for _, stat := range batch {
@@ -114,6 +115,16 @@ func (s *StatsService) SaveStats(enableTraffic bool, bucketSeconds int64) error 
 			if owner, id, ok := DeviceOwner(stat.Tag); ok {
 				name = owner
 				deviceSeen[id] = true
+				dt, ok := deviceTraffic[id]
+				if !ok {
+					dt = &traffic{}
+					deviceTraffic[id] = dt
+				}
+				if stat.Direction {
+					dt.up += stat.Traffic
+				} else {
+					dt.down += stat.Traffic
+				}
 			}
 			t, ok := userTraffic[name]
 			if !ok {
@@ -150,6 +161,15 @@ func (s *StatsService) SaveStats(enableTraffic bool, bucketSeconds int64) error 
 		}
 		if err = tx.Model(model.Device{}).Where("id IN ?", ids).Update("online_at", now).Error; err != nil {
 			return err
+		}
+		for id, t := range deviceTraffic {
+			if t.up == 0 && t.down == 0 {
+				continue
+			}
+			if err = tx.Model(model.Device{}).Where("id = ?", id).Updates(map[string]interface{}{
+				"up": gorm.Expr("up + ?", t.up), "down": gorm.Expr("down + ?", t.down)}).Error; err != nil {
+				return err
+			}
 		}
 	}
 

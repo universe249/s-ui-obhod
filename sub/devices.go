@@ -30,6 +30,7 @@ func deviceInfo(c *gin.Context) service.DeviceInfo {
 		Model:     h.Get("X-Device-Model"),
 		Os:        firstNonEmpty(h.Get("X-Device-Os"), h.Get("X-Ver-Os")),
 		UserAgent: h.Get("User-Agent"),
+		Ip:        firstNonEmpty(h.Get("X-Obhod-Client-Ip"), c.ClientIP()),
 	}
 }
 
@@ -55,6 +56,7 @@ func resolveClient(subId string, info service.DeviceInfo) (*model.Client, *subRe
 	dev, changed, err := ds.Register(client, info)
 	switch {
 	case errors.Is(err, service.ErrNoHwid):
+		service.LogDeviceEvent(client, nil, "nohwid", info, "")
 		return nil, &subRefusal{
 			text:    "⚠ Это приложение не сообщает идентификатор устройства. Используй Happ, v2RayTun или «Обход для чайников»",
 			headers: map[string]string{"x-hwid-not-supported": "true"},
