@@ -55,6 +55,14 @@ type Client struct {
 	// DeviceLimit (obhod): 0 — как обычно, один общий ключ; N > 0 — подписку получают только приложения
 	// с заголовком x-hwid, не больше N устройств, у каждого свой ключ.
 	DeviceLimit int `json:"deviceLimit" form:"deviceLimit" gorm:"default:0;not null"`
+	// DeviceGraceUntil (obhod): переходный период после включения режима устройств. До этого времени работает и
+	// прежний общий ключ, а приложения без x-hwid или сверх лимита получают подписку как раньше — чтобы все успели
+	// обновить подписку и получить свои ключи. 0 — периода нет.
+	DeviceGraceUntil int64 `json:"deviceGraceUntil" form:"deviceGraceUntil" gorm:"default:0;not null"`
+	// LegacySeenAt (obhod): когда в режиме устройств последний раз был трафик по общему ключу (кто-то не обновил подписку)
+	LegacySeenAt int64 `json:"legacySeenAt" form:"legacySeenAt" gorm:"default:0;not null"`
+	// LegacyWarnedAt (obhod): когда человеку последний раз напомнили обновить подписку до конца переходного периода
+	LegacyWarnedAt int64 `json:"legacyWarnedAt" form:"legacyWarnedAt" gorm:"default:0;not null"`
 	// SubToken (obhod): секретная часть адреса подписки вместо угадываемого имени клиента
 	SubToken  string `json:"subToken" form:"subToken" gorm:"index"`
 	TotalDown int64  `json:"totalDown" form:"totalDown" gorm:"default:0;not null"`

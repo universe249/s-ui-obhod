@@ -266,14 +266,15 @@ func (s *InboundService) fetchUsers(db *gorm.DB, inboundType string, condition s
 	}
 
 	type userRow struct {
-		Id          uint
-		Name        string
-		DeviceLimit int
-		Cfg         string
+		Id               uint
+		Name             string
+		DeviceLimit      int
+		DeviceGraceUntil int64
+		Cfg              string
 	}
 	var rows []userRow
 	err := db.Raw(
-		fmt.Sprintf(`SELECT id, name, device_limit, json_extract(clients.config, "$.%s") AS cfg
+		fmt.Sprintf(`SELECT id, name, device_limit, device_grace_until, json_extract(clients.config, "$.%s") AS cfg
 		FROM clients WHERE enable = true AND %s`,
 			inboundType, condition), args...).Scan(&rows).Error
 	if err != nil {
@@ -308,6 +309,9 @@ func (s *InboundService) fetchUsers(db *gorm.DB, inboundType string, condition s
 		if !deviceMode || r.DeviceLimit <= 0 {
 			users = append(users, r.Cfg)
 			continue
+		}
+		if r.DeviceGraceUntil > now {
+			users = append(users, r.Cfg) // переходный период: общий ключ работает вместе с ключами устройств
 		}
 		var base map[string]interface{}
 		if json.Unmarshal([]byte(r.Cfg), &base) != nil {
@@ -406,14 +410,16 @@ func (s *InboundService) initUsers(db *gorm.DB, inboundJson []byte, clientIds st
 	return json.Marshal(inbound)
 }
 
-func (s *InboundService) enabledClientNames(tx *gorm.DB, inboundId uint) (map[string]struct{}, error) {
+// deviceMode — у входа ключи по устройствам: тогда общий ключ клиента в режиме устройств живёт только в переходный период.
+func (s *InboundService) enabledClientNames(tx *gorm.DB, inboundId uint, deviceMode bool) (map[string]struct{}, error) {
 	var rows []struct {
-		Id          uint
-		Name        string
-		DeviceLimit int
+		Id               uint
+		Name             string
+		DeviceLimit      int
+		DeviceGraceUntil int64
 	}
 	err := tx.Raw(
-		"SELECT clients.id, clients.name, clients.device_limit FROM clients, json_each(clients.inbounds) AS je WHERE je.value = ? AND clients.enable = true",
+		"SELECT clients.id, clients.name, clients.device_limit, clients.device_grace_until FROM clients, json_each(clients.inbounds) AS je WHERE je.value = ? AND clients.enable = true",
 		inboundId).Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -421,8 +427,11 @@ func (s *InboundService) enabledClientNames(tx *gorm.DB, inboundId uint) (map[st
 	keep := make(map[string]struct{}, len(rows))
 	var devClients []uint
 	byId := map[uint]string{}
+	now := time.Now().Unix()
 	for _, r := range rows {
-		keep[r.Name] = struct{}{}
+		if !deviceMode || r.DeviceLimit <= 0 || r.DeviceGraceUntil > now {
+			keep[r.Name] = struct{}{}
+		}
 		if r.DeviceLimit > 0 {
 			devClients = append(devClients, r.Id)
 			byId[r.Id] = r.Name
@@ -470,7 +479,7 @@ func (s *InboundService) UpdateInboundsUsers(tx *gorm.DB, ids []uint) error {
 		}
 		if handled {
 			// Disconnect only users no longer enabled on this inbound
-			keep, err := s.enabledClientNames(tx, inbound.Id)
+			keep, err := s.enabledClientNames(tx, inbound.Id, perDeviceProto(inbound.Type))
 			if err != nil {
 				return err
 			}

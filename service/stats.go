@@ -94,6 +94,7 @@ func (s *StatsService) SaveStats(enableTraffic bool, bucketSeconds int64) error 
 	type traffic struct{ up, down int64 }
 	userTraffic := map[string]*traffic{}
 	deviceSeen := map[uint]bool{}
+	plainUsers := map[string]bool{} // общий ключ клиента (не «~d<id>»): в режиме устройств — кто-то не обновил подписку
 	deviceTraffic := map[uint]*traffic{}
 	seenInbound := map[string]bool{}
 	seenOutbound := map[string]bool{}
@@ -112,6 +113,9 @@ func (s *StatsService) SaveStats(enableTraffic bool, bucketSeconds int64) error 
 		case "user":
 			// obhod: трафик устройства «<клиент>~d<id>» идёт в счёт клиента
 			name := stat.Tag
+			if _, _, ok := DeviceOwner(stat.Tag); !ok {
+				plainUsers[name] = true
+			}
 			if owner, id, ok := DeviceOwner(stat.Tag); ok {
 				name = owner
 				deviceSeen[id] = true
@@ -150,6 +154,16 @@ func (s *StatsService) SaveStats(enableTraffic bool, bucketSeconds int64) error 
 		}
 		err = tx.Model(model.Client{}).Where("name = ?", name).Updates(update).Error
 		if err != nil {
+			return err
+		}
+	}
+
+	if len(plainUsers) > 0 {
+		names := make([]string, 0, len(plainUsers))
+		for n := range plainUsers {
+			names = append(names, n)
+		}
+		if err = tx.Model(model.Client{}).Where("device_limit > 0 AND name IN ?", names).Update("legacy_seen_at", now).Error; err != nil {
 			return err
 		}
 	}

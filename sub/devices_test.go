@@ -227,3 +227,27 @@ func TestSecretSubToken(t *testing.T) {
 		t.Fatalf("token changed on edit: %q -> %q", cl.SubToken, after.SubToken)
 	}
 }
+
+func TestSubTransitionServesSharedKey(t *testing.T) {
+	r, c := devTestSetup(t, 1)
+	database.GetDB().Model(model.Client{}).Where("id = ?", c.Id).Update("device_grace_until", time.Now().Unix()+3600)
+	// без x-hwid в переходный период — подписка как раньше, с общими ключами
+	w, body := fetch(t, r, "")
+	if w.Header().Get("x-hwid-not-supported") != "" || !strings.Contains(body, baseUUID) {
+		t.Fatalf("transition: app without hwid must get the shared subscription: %v %q", w.Header(), body)
+	}
+	// первое устройство получает свои ключи, второе сверх лимита — пока общие
+	_, b1 := fetch(t, r, "hwid-aaaaaa")
+	if strings.Contains(b1, baseUUID) {
+		t.Fatalf("device must get its own key: %q", b1)
+	}
+	w2, b2 := fetch(t, r, "hwid-bbbbbb")
+	if w2.Header().Get("x-hwid-max-devices-reached") != "" || !strings.Contains(b2, baseUUID) {
+		t.Fatalf("transition: over-limit device must get the shared subscription: %v %q", w2.Header(), b2)
+	}
+	// период вышел — обычные отказы
+	database.GetDB().Model(model.Client{}).Where("id = ?", c.Id).Update("device_grace_until", 0)
+	if w, _ := fetch(t, r, "hwid-bbbbbb"); w.Header().Get("x-hwid-max-devices-reached") != "true" {
+		t.Fatal("after transition the limit must apply")
+	}
+}

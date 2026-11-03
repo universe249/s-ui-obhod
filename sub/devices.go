@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/alireza0/s-ui/database/model"
 	"github.com/alireza0/s-ui/logger"
@@ -53,6 +54,13 @@ func resolveClient(subId string, info service.DeviceInfo) (*model.Client, *subRe
 	}
 	var ds service.DeviceService
 	dev, changed, err := ds.Register(client, info)
+	if service.InGrace(client, time.Now().Unix()) && (errors.Is(err, service.ErrNoHwid) || errors.Is(err, service.ErrDeviceLimit)) {
+		// переходный период: приложение без x-hwid или сверх лимита пока получает подписку с общим ключом
+		if errors.Is(err, service.ErrNoHwid) {
+			service.LogDeviceEvent(client, nil, "nohwid", info, "")
+		}
+		return client, nil, nil
+	}
 	switch {
 	case errors.Is(err, service.ErrNoHwid):
 		service.LogDeviceEvent(client, nil, "nohwid", info, "")

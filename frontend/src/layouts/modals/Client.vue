@@ -131,7 +131,7 @@
                     min="0"
                     max="100"
                     :label="$t('client.deviceLimit')"
-                    :hint="$t('client.deviceLimitHint')"
+                    :hint="graceText || $t('client.deviceLimitHint')"
                     persistent-hint
                   />
                 </v-col>
@@ -609,6 +609,14 @@ export default {
         }
         this.client.resetDays = v
       }
+    },
+    graceText(): string {
+      const g = this.client.deviceGraceUntil ?? 0
+      if ((this.client.deviceLimit ?? 0) <= 0 || g * 1000 <= Date.now()) return ''
+      const fmt = (t:number) => new Date(t * 1000).toLocaleString()
+      const seen = this.client.legacySeenAt ?? 0
+      return this.$t('client.graceUntil', { date: fmt(g) }) + ' · ' +
+        (seen ? this.$t('client.legacySeen', { date: fmt(seen) }) : this.$t('client.legacyNone'))
     },
     deviceLimit: {
       get() { return this.client.deviceLimit ?? 0 },

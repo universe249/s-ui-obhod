@@ -309,6 +309,11 @@ export default {
     webhook: "Notifications URL (webhook)",
     webhookSecret: "Webhook secret",
     webhookHint: "The panel sends JSON about every device event, the secret goes in X-Obhod-Secret",
+    transitionHours: "Transition period, hours",
+    transitionHoursHint: "After a device limit is turned on, the old shared key keeps working this long so everyone can update the subscription. 0 — immediately",
+    graceUntil: "Transition period until {date}: the old shared key still works",
+    legacySeen: "shared key last used {date}",
+    legacyNone: "nobody has used the shared key",
   },
   bulk: {
     order: "Order",

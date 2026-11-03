@@ -29,6 +29,8 @@ export interface Client {
   createdAt?: number
   onlineAt?: number
   deviceLimit?: number
+  deviceGraceUntil?: number
+  legacySeenAt?: number
   subToken?: string
 }
 

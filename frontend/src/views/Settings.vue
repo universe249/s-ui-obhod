@@ -475,6 +475,19 @@
                 hide-details
               />
             </v-col>
+            <v-col
+              cols="12"
+              md="4"
+            >
+              <v-text-field
+                v-model="settings.deviceTransitionHours"
+                type="number"
+                min="0"
+                :label="$t('client.transitionHours')"
+                :hint="$t('client.transitionHoursHint')"
+                persistent-hint
+              />
+            </v-col>
           </v-row>
         </v-window-item>
 
@@ -527,6 +540,7 @@ const settings = ref({
 	login2fa: "false",
 	deviceRotateHours: "0",
 	deviceGraceHours: "24",
+	deviceTransitionHours: "72",
 	deviceWebhook: "",
 	deviceWebhookSecret: "",
 	subEncode: "true",

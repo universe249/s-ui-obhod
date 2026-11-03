@@ -96,6 +96,7 @@ func (s *ClientService) Save(tx *gorm.DB, act string, data json.RawMessage, host
 		if act == "edit" && !jsonHasKey(data, "deviceLimit") {
 			keepDeviceLimit(tx, &client)
 		}
+		syncDeviceGrace(tx, &client)
 		if act == "edit" {
 			// Find changed inbounds
 			inboundIds, err = s.findInboundsChanges(tx, &client, false)
@@ -172,6 +173,7 @@ func (s *ClientService) Save(tx *gorm.DB, act string, data json.RawMessage, host
 			if !rawHasKey(data, len(seen), "deviceLimit") {
 				keepDeviceLimit(tx, client)
 			}
+			syncDeviceGrace(tx, client)
 			seen[client.Name] = true
 			changedInboundIds, err := s.findInboundsChanges(tx, client, true)
 			if err != nil {

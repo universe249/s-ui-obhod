@@ -67,47 +67,48 @@ var protectedSettings = map[string]bool{
 }
 
 var defaultValueMap = map[string]string{
-	"webListen":           "",
-	"webDomain":           "",
-	"webPort":             "2095",
-	"secret":              common.Random(32),
-	"webCertFile":         "",
-	"webKeyFile":          "",
-	"webPath":             "/app/",
-	"webURI":              "",
-	"sessionMaxAge":       "0",
-	"trafficAge":          "30",
-	"statsBucketSeconds":  "60",
-	"timeLocation":        "Europe/Moscow", // obhod
-	"subListen":           "",
-	"subPort":             "2096",
-	"subPath":             "/sub/",
-	"subDomain":           "",
-	"subCertFile":         "",
-	"subKeyFile":          "",
-	"subUpdates":          "12",
-	"deviceRotateHours":   "0",
-	"deviceGraceHours":    "24",
-	"publicHost":          "",
-	"subByName":           "true",
-	"login2fa":            "false",
-	"deviceWebhook":       "",
-	"deviceWebhookSecret": "",
-	"subEncode":           "true",
-	"subShowInfo":         "false",
-	"subRemarkPrefix":     "true",
-	"subURI":              "",
-	"subJsonExt":          "",
-	"subClashExt":         "",
-	"subCustomHeaders":    "",
-	"subClashNoDefGrp":    "false",
-	"subClashSprtAll":     "false",
-	"subClashUdp":         "false",
-	"maintenance":         "false",
-	"globalReset":         "",
-	"globalResetLast":     "0",
-	"config":              defaultConfig,
-	"version":             config.GetVersion(),
+	"webListen":             "",
+	"webDomain":             "",
+	"webPort":               "2095",
+	"secret":                common.Random(32),
+	"webCertFile":           "",
+	"webKeyFile":            "",
+	"webPath":               "/app/",
+	"webURI":                "",
+	"sessionMaxAge":         "0",
+	"trafficAge":            "30",
+	"statsBucketSeconds":    "60",
+	"timeLocation":          "Europe/Moscow", // obhod
+	"subListen":             "",
+	"subPort":               "2096",
+	"subPath":               "/sub/",
+	"subDomain":             "",
+	"subCertFile":           "",
+	"subKeyFile":            "",
+	"subUpdates":            "12",
+	"deviceRotateHours":     "0",
+	"deviceGraceHours":      "24",
+	"publicHost":            "",
+	"subByName":             "true",
+	"login2fa":              "false",
+	"deviceTransitionHours": "72",
+	"deviceWebhook":         "",
+	"deviceWebhookSecret":   "",
+	"subEncode":             "true",
+	"subShowInfo":           "false",
+	"subRemarkPrefix":       "true",
+	"subURI":                "",
+	"subJsonExt":            "",
+	"subClashExt":           "",
+	"subCustomHeaders":      "",
+	"subClashNoDefGrp":      "false",
+	"subClashSprtAll":       "false",
+	"subClashUdp":           "false",
+	"maintenance":           "false",
+	"globalReset":           "",
+	"globalResetLast":       "0",
+	"config":                defaultConfig,
+	"version":               config.GetVersion(),
 }
 
 type SettingService struct {
@@ -636,4 +637,14 @@ func (s *SettingService) Login2FA() bool {
 // SetObhodFlag — для командной строки: subByName / login2fa = true|false.
 func (s *SettingService) SetObhodFlag(key string, on bool) error {
 	return s.setString(key, map[bool]string{true: "true", false: "false"}[on])
+}
+
+// DeviceTransitionHours (obhod): сколько часов после включения режима устройств работает и общий ключ клиента.
+func (s *SettingService) DeviceTransitionHours() int {
+	v, _ := s.getString("deviceTransitionHours")
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n < 0 {
+		return 72
+	}
+	return n
 }

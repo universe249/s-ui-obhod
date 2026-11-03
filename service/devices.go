@@ -405,10 +405,90 @@ func (s *DeviceService) SetLimit(clientId uint, limit int) error {
 		return fmt.Errorf("limit must be 0..100")
 	}
 	db := database.GetDB()
-	if err := db.Model(model.Client{}).Where("id = ?", clientId).Update("device_limit", limit).Error; err != nil {
+	var old model.Client
+	if err := db.Model(model.Client{}).Select("device_limit", "device_grace_until").Where("id = ?", clientId).First(&old).Error; err != nil {
+		return err
+	}
+	grace := old.DeviceGraceUntil
+	switch {
+	case limit <= 0:
+		grace = 0
+	case old.DeviceLimit <= 0:
+		grace = graceUntil(time.Now())
+	}
+	if err := db.Model(model.Client{}).Where("id = ?", clientId).Updates(map[string]interface{}{
+		"device_limit": limit, "device_grace_until": grace}).Error; err != nil {
 		return err
 	}
 	return ApplyClient(clientId)
+}
+
+// graceUntil — конец переходного периода, если режим устройств включают сейчас (0 — без периода).
+func graceUntil(now time.Time) int64 {
+	var set SettingService
+	h := set.DeviceTransitionHours()
+	if h <= 0 {
+		return 0
+	}
+	return now.Unix() + int64(h)*3600
+}
+
+// InGrace — идёт переходный период: работает и общий ключ клиента.
+func InGrace(c *model.Client, now int64) bool {
+	return c.DeviceLimit > 0 && c.DeviceGraceUntil > now
+}
+
+// syncDeviceGrace — при сохранении клиента: лимит устройств включили (0 → N) — начинается переходный период,
+// выключили — период сброшен; служебные отметки (общий ключ, напоминание) ведёт панель, форма их не меняет.
+func syncDeviceGrace(tx *gorm.DB, client *model.Client) {
+	var old model.Client
+	found := client.Id != 0 && tx.Model(model.Client{}).
+		Select("device_limit", "device_grace_until", "legacy_seen_at", "legacy_warned_at").
+		Where("id = ?", client.Id).First(&old).Error == nil
+	client.LegacySeenAt, client.LegacyWarnedAt = old.LegacySeenAt, old.LegacyWarnedAt
+	switch {
+	case client.DeviceLimit <= 0:
+		client.DeviceGraceUntil = 0
+	case !found || old.DeviceLimit <= 0:
+		client.DeviceGraceUntil = graceUntil(time.Now())
+	default:
+		client.DeviceGraceUntil = old.DeviceGraceUntil
+	}
+}
+
+// GraceTick (раз в минуту): переходный период закончился — общий ключ убирается из ядра и его соединения рвутся;
+// за сутки до конца тем, кто всё ещё ходит по общему ключу, уходит напоминание обновить подписку (событие «legacy»).
+func (s *DeviceService) GraceTick(now int64) error {
+	db := database.GetDB()
+	var ended []model.Client
+	if err := db.Where("device_limit > 0 AND device_grace_until > 0 AND device_grace_until <= ?", now).Find(&ended).Error; err != nil {
+		return err
+	}
+	for i := range ended {
+		c := &ended[i]
+		if err := db.Model(model.Client{}).Where("id = ?", c.Id).Update("device_grace_until", 0).Error; err != nil {
+			return err
+		}
+		if err := ApplyClient(c.Id); err != nil {
+			logger.Warning("devices: grace end: ", err)
+		}
+		if c.LegacySeenAt > c.DeviceGraceUntil-2*86400 {
+			LogDeviceEvent(c, nil, "grace_end", DeviceInfo{}, "")
+		}
+	}
+	var soon []model.Client
+	if err := db.Where("device_limit > 0 AND device_grace_until > ? AND device_grace_until <= ? AND legacy_seen_at > ? AND legacy_warned_at < device_grace_until - ?",
+		now, now+86400, now-2*86400, 86400).Find(&soon).Error; err != nil {
+		return err
+	}
+	for i := range soon {
+		c := &soon[i]
+		if err := db.Model(model.Client{}).Where("id = ?", c.Id).Update("legacy_warned_at", now).Error; err != nil {
+			return err
+		}
+		LogDeviceEvent(c, nil, "legacy", DeviceInfo{}, "")
+	}
+	return nil
 }
 
 // ---- помощники для ClientService ----
@@ -611,6 +691,8 @@ type ClientInfo struct {
 	Expiry       int64               `json:"expiry"`
 	OnlineAt     int64               `json:"onlineAt"`
 	DeviceLimit  int                 `json:"deviceLimit"`
+	GraceUntil   int64               `json:"graceUntil"`   // переходный период: до этого времени работает и общий ключ
+	LegacySeenAt int64               `json:"legacySeenAt"` // последний трафик по общему ключу в режиме устройств
 	Devices      []DeviceView        `json:"devices"`
 	Events       []model.DeviceEvent `json:"events"`
 	LimitHits24h int                 `json:"limitHits24h"`
@@ -636,7 +718,7 @@ func (s *DeviceService) ClientInfo(id uint, name string) (*ClientInfo, error) {
 	var hits int64
 	db.Model(model.DeviceEvent{}).Where("client_id = ? AND kind = ? AND at > ?", c.Id, "limit", time.Now().Unix()-86400).Count(&hits)
 	return &ClientInfo{Id: c.Id, Name: c.Name, SubToken: c.SubToken, Enable: c.Enable, Volume: c.Volume, Used: c.Up + c.Down, Expiry: c.Expiry,
-		OnlineAt: c.OnlineAt, DeviceLimit: c.DeviceLimit, Devices: views, Events: evs, LimitHits24h: int(hits)}, nil
+		OnlineAt: c.OnlineAt, DeviceLimit: c.DeviceLimit, GraceUntil: c.DeviceGraceUntil, LegacySeenAt: c.LegacySeenAt, Devices: views, Events: evs, LimitHits24h: int(hits)}, nil
 }
 
 // PruneEvents удаляет записи журнала старше 90 дней.

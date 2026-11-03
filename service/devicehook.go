@@ -30,6 +30,7 @@ type deviceHookClient struct {
 	Id          uint   `json:"id"`
 	Name        string `json:"name"`
 	DeviceLimit int    `json:"deviceLimit"`
+	GraceUntil  int64  `json:"graceUntil,omitempty"` // переходный период: до этого времени работает и общий ключ
 }
 
 type deviceHookDev struct {
@@ -51,7 +52,7 @@ func sendDeviceWebhook(client *model.Client, dev *model.Device, e *model.DeviceE
 	var n int64
 	database.GetDB().Model(model.Device{}).Where("client_id = ?", client.Id).Count(&n)
 	p := deviceHookPayload{Kind: e.Kind, At: e.At, Actor: e.Actor, Ip: e.Ip, Devices: n,
-		Client: deviceHookClient{Id: client.Id, Name: client.Name, DeviceLimit: client.DeviceLimit}}
+		Client: deviceHookClient{Id: client.Id, Name: client.Name, DeviceLimit: client.DeviceLimit, GraceUntil: client.DeviceGraceUntil}}
 	if e.Hwid != "" || e.DeviceId != 0 {
 		p.Device = &deviceHookDev{Id: e.DeviceId, Hwid: e.Hwid, Model: e.Model, UserAgent: e.UserAgent}
 	}

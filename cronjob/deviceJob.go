@@ -20,6 +20,9 @@ func (j *DeviceJob) Run() {
 	if err := j.DropExpiredPrev(); err != nil {
 		logger.Warning("device job: ", err)
 	}
+	if err := j.GraceTick(time.Now().Unix()); err != nil {
+		logger.Warning("device job: grace: ", err)
+	}
 	if j.runs%360 == 0 { // раз в 6 часов
 		j.PruneEvents()
 		j.checkCerts()
