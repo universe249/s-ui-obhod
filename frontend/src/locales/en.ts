@@ -255,6 +255,12 @@ export default {
     clashUdp: "Enable UDP by default",
   },
   obhod: {
+    loginCode: "Code from Telegram",
+    loginCodeHint: "The bot has sent the login code to the owner",
+    subByName: "Subscriptions by client name (old links)",
+    subByNameHint: "Turn off when everyone uses secret links — then a guessed name gives nothing",
+    login2fa: "Confirm login with a code from Telegram",
+    login2faHint: "Needs the notifications address (bot). Turn off over SSH: s-ui setting -login2fa false",
     compatOk: "Apps OK",
     compatIssues: "Issues: {n}",
     cert: "Certificate",

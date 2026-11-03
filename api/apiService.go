@@ -319,6 +319,23 @@ func (a *ApiService) Login(c *gin.Context) {
 		jsonMsg(c, "", err)
 		return
 	}
+	// obhod: второй шаг — код из бота
+	if a.SettingService.Login2FA() {
+		code := strings.TrimSpace(c.Request.FormValue("code"))
+		if code == "" {
+			if err := service.StartLoginCode(loginUser, remoteIP); err != nil {
+				jsonMsg(c, "", err)
+				return
+			}
+			jsonObj(c, map[string]bool{"needCode": true}, nil)
+			return
+		}
+		if !service.CheckLoginCode(loginUser, code) {
+			service.NoteLoginFailure(remoteIP)
+			jsonMsg(c, "", common.NewError("неверный или устаревший код"))
+			return
+		}
+	}
 
 	sessionMaxAge, err := a.SettingService.GetSessionMaxAge()
 	if err != nil {
@@ -334,6 +351,7 @@ func (a *ApiService) Login(c *gin.Context) {
 		return
 	}
 	logger.Info("user ", loginUser, " login success")
+	go service.SendPanelEvent("login", map[string]interface{}{"user": loginUser, "ip": remoteIP, "ua": c.Request.UserAgent()})
 
 	jsonMsg(c, "", nil)
 }

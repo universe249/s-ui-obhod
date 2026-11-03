@@ -215,3 +215,24 @@ func getPanelURI() {
 		fmt.Printf("\nGlobal address:\n%s%s%s\n", Proto, pubIP, PortText+BasePath)
 	}
 }
+
+// updateObhodFlags (obhod): login2fa / subByName из командной строки — например, выключить вход по коду,
+// если бот недоступен: s-ui setting -login2fa false
+func updateObhodFlags(flags map[string]string) {
+	var set service.SettingService
+	for k, v := range flags {
+		if v == "" {
+			continue
+		}
+		on := v == "true" || v == "1" || v == "on"
+		if !on && v != "false" && v != "0" && v != "off" {
+			fmt.Println(k, ": use true or false")
+			continue
+		}
+		if err := set.SetObhodFlag(k, on); err != nil {
+			fmt.Println("set", k, "failed:", err)
+		} else {
+			fmt.Println("set", k, "=", on)
+		}
+	}
+}

@@ -192,3 +192,38 @@ func TestDeviceEventsSummaryAndWebhook(t *testing.T) {
 		t.Fatalf("delete event %+v", evs[0])
 	}
 }
+
+func TestSecretSubToken(t *testing.T) {
+	r, c := devTestSetup(t, 0)
+	db := database.GetDB()
+	service.EnsureSubTokens()
+	var cl model.Client
+	db.First(&cl, c.Id)
+	if len(cl.SubToken) < 20 {
+		t.Fatalf("no token: %q", cl.SubToken)
+	}
+	get := func(id string) int {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/sub/"+id, nil))
+		return w.Code
+	}
+	if get(cl.SubToken) != 200 || get("alice") != 200 {
+		t.Fatal("token and (for now) name must both work")
+	}
+	db.Create(&model.Setting{Key: "subByName", Value: "false"})
+	if get(cl.SubToken) != 200 || get("alice") == 200 {
+		t.Fatal("with subByName=false only the secret token may work")
+	}
+	// правка клиента из старого интерфейса без токена не меняет и не стирает его
+	var cs service.ClientService
+	data, _ := json.Marshal(map[string]interface{}{"id": cl.Id, "name": "alice", "enable": true, "inbounds": []int{}, "links": []interface{}{},
+		"config": json.RawMessage(cl.Config)})
+	if _, err := cs.Save(db, "edit", data, "h"); err != nil {
+		t.Fatal(err)
+	}
+	var after model.Client
+	db.First(&after, c.Id)
+	if after.SubToken != cl.SubToken {
+		t.Fatalf("token changed on edit: %q -> %q", cl.SubToken, after.SubToken)
+	}
+}

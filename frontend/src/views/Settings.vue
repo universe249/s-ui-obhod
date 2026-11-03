@@ -389,6 +389,36 @@
             </v-col>
           </v-row>
           <v-row>
+            <v-col
+              cols="12"
+              md="6"
+            >
+              <v-switch
+                v-model="settings.subByName"
+                true-value="true"
+                false-value="false"
+                color="primary"
+                :label="$t('obhod.subByName')"
+                :hint="$t('obhod.subByNameHint')"
+                persistent-hint
+              />
+            </v-col>
+            <v-col
+              cols="12"
+              md="6"
+            >
+              <v-switch
+                v-model="settings.login2fa"
+                true-value="true"
+                false-value="false"
+                color="primary"
+                :label="$t('obhod.login2fa')"
+                :hint="$t('obhod.login2faHint')"
+                persistent-hint
+              />
+            </v-col>
+          </v-row>
+          <v-row>
             <v-col cols="12">
               <div class="text-subtitle-1">
                 {{ $t('client.devSettings') }}
@@ -493,6 +523,8 @@ const settings = ref({
 	subKeyFile: "",
 	subUpdates: "12",
 	publicHost: "",
+	subByName: "true",
+	login2fa: "false",
 	deviceRotateHours: "0",
 	deviceGraceHours: "24",
 	deviceWebhook: "",

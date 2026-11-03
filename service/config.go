@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"gorm.io/gorm"
 	"strconv"
 	"sync"
 	"time"
@@ -380,6 +381,11 @@ func (s *ConfigService) Save(obj string, act string, data json.RawMessage, initU
 
 	db := database.GetDB()
 	tx := db.Begin()
+	modsBefore := corePtr.Mods()
+	var prevConfig string
+	if obj == "config" {
+		prevConfig, _ = s.SettingService.GetConfig()
+	}
 	defer func() {
 		// A panic leaves err nil, which would otherwise commit a half-applied
 		// transaction while gin tells the operator the save failed.
@@ -389,6 +395,17 @@ func (s *ConfigService) Save(obj string, act string, data json.RawMessage, initU
 		}
 		if err != nil {
 			tx.Rollback()
+			// obhod: сохранение не удалось, а ядро уже поменяли на ходу (например, старое входящее убрали,
+			// новое не поднялось) — база откатилась, ядро пересобираем из неё, иначе оно осталось бы без входящего.
+			if corePtr.Mods() != modsBefore && corePtr.IsRunning() {
+				reason := err.Error()
+				go func() {
+					defer func() { _ = recover() }()
+					rerr := s.RestartCore()
+					logger.Warning("save of ", obj, " failed, core rebuilt from the database: ", reason)
+					SendPanelEvent("core_resync", map[string]interface{}{"object": obj, "error": reason, "restartError": errString(rerr)})
+				}()
+			}
 			return
 		}
 		if cErr := tx.Commit().Error; cErr != nil {
@@ -404,7 +421,16 @@ func (s *ConfigService) Save(obj string, act string, data json.RawMessage, initU
 						logger.Error("panic while restarting core with new config: ", r)
 					}
 				}()
-				_ = s.restartCoreWithConfig(restartWith)
+				if rerr := s.restartCoreWithConfig(restartWith); rerr != nil && prevConfig != "" {
+					// obhod: ядро не поднялось с новым общим конфигом — возвращаем прежний и запускаем с ним
+					logger.Error("core failed with the new config, rolling back: ", rerr)
+					if e := database.GetDB().Transaction(func(tx2 *gorm.DB) error {
+						return s.SettingService.SaveConfig(tx2, json.RawMessage(prevConfig))
+					}); e == nil {
+						_ = s.RestartCore()
+					}
+					SendPanelEvent("core_rollback", map[string]interface{}{"error": rerr.Error()})
+				}
 			}()
 			return
 		}
@@ -532,3 +558,14 @@ func (s *ConfigService) GetChanges(actor string, chngKey string, count string) [
 	}
 	return chngs
 }
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+// CoreRunning / InMaintenance (obhod) — для сторожа ядра.
+func (s *ConfigService) CoreRunning() bool   { return corePtr != nil && corePtr.IsRunning() }
+func (s *ConfigService) InMaintenance() bool { return s.inMaintenance() }

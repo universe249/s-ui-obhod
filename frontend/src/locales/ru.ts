@@ -255,6 +255,12 @@ export default {
     clashUdp: "Включить UDP по умолчанию",
   },
   obhod: {
+    loginCode: "Код из Telegram",
+    loginCodeHint: "Бот отправил код входа главному администратору",
+    subByName: "Подписки по имени клиента (старые ссылки)",
+    subByNameHint: "Выключи, когда все перешли на секретные ссылки — тогда угаданное имя ничего не даст",
+    login2fa: "Подтверждать вход кодом из Telegram",
+    login2faHint: "Нужен адрес уведомлений (бот). Выключить по SSH: s-ui setting -login2fa false",
     compatOk: "Приложения ✓",
     compatIssues: "Замечаний: {n}",
     cert: "Сертификат",

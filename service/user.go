@@ -63,6 +63,7 @@ func (s *UserService) Login(username string, password string, remoteIP string) (
 	if user == nil {
 		if NoteLoginFailure(remoteIP) {
 			logger.Warning("login locked out for ", remoteIP, " after ", maxLoginFailures, " failed attempts")
+			go SendPanelEvent("login_locked", map[string]interface{}{"ip": remoteIP, "user": username})
 		}
 		// The message stays the same whether the user exists or not.
 		return "", common.NewError("wrong user or password! IP: ", remoteIP)

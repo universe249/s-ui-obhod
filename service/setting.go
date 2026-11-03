@@ -89,6 +89,8 @@ var defaultValueMap = map[string]string{
 	"deviceRotateHours":   "0",
 	"deviceGraceHours":    "24",
 	"publicHost":          "",
+	"subByName":           "true",
+	"login2fa":            "false",
 	"deviceWebhook":       "",
 	"deviceWebhookSecret": "",
 	"subEncode":           "true",
@@ -617,4 +619,21 @@ func (s *SettingService) PublicHost(tx *gorm.DB) string {
 	}
 	tx.Model(model.Setting{}).Select("value").Where("key = ?", "publicHost").Scan(&v)
 	return strings.TrimSpace(v)
+}
+
+// SubByName (obhod): отдавать подписку и по имени клиента (старые ссылки). Выключить, когда все перешли на секретные.
+func (s *SettingService) SubByName() bool {
+	v, err := s.getString("subByName")
+	return err != nil || v != "false"
+}
+
+// Login2FA (obhod): вход в панель подтверждается кодом из бота.
+func (s *SettingService) Login2FA() bool {
+	v, _ := s.getString("login2fa")
+	return v == "true"
+}
+
+// SetObhodFlag — для командной строки: subByName / login2fa = true|false.
+func (s *SettingService) SetObhodFlag(key string, on bool) error {
+	return s.setString(key, map[bool]string{true: "true", false: "false"}[on])
 }

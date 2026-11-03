@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alireza0/s-ui/database"
 	"github.com/alireza0/s-ui/database/model"
 	"github.com/alireza0/s-ui/service"
 	"github.com/alireza0/s-ui/util"
@@ -48,13 +47,7 @@ func (s *SubService) GetSubsClient(client *model.Client) (*string, []string, err
 }
 
 func (j *SubService) getClientBySubId(subId string) (*model.Client, error) {
-	db := database.GetDB()
-	client := &model.Client{}
-	err := db.Model(model.Client{}).Where("enable = true and name = ?", subId).First(client).Error
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
+	return service.ClientBySub(subId)
 }
 
 func (s *SubService) getClientHeaders(client *model.Client) []string {

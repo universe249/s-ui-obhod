@@ -111,6 +111,7 @@ func (s *ClientService) Save(tx *gorm.DB, act string, data json.RawMessage, host
 				return nil, err
 			}
 		}
+		keepSubToken(tx, &client)
 		err = tx.Save(&client).Error
 		if err != nil {
 			return nil, err
@@ -146,6 +147,9 @@ func (s *ClientService) Save(tx *gorm.DB, act string, data json.RawMessage, host
 		err = s.updateLinksWithFixedInbounds(tx, clients, hostname)
 		if err != nil {
 			return nil, err
+		}
+		for _, cl := range clients {
+			keepSubToken(tx, cl)
 		}
 		err = tx.Save(clients).Error
 		if err != nil {
@@ -186,6 +190,9 @@ func (s *ClientService) Save(tx *gorm.DB, act string, data json.RawMessage, host
 			if err != nil {
 				return nil, err
 			}
+		}
+		for _, cl := range clients {
+			keepSubToken(tx, cl)
 		}
 		err = tx.Save(clients).Error
 		if err != nil {

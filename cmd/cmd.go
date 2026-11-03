@@ -37,6 +37,9 @@ func ParseCmd() {
 	settingCmd.StringVar(&path, "path", "", "set panel path")
 	settingCmd.IntVar(&subPort, "subPort", 0, "set sub port")
 	settingCmd.StringVar(&subPath, "subPath", "", "set sub path")
+	var login2fa, subByName string
+	settingCmd.StringVar(&login2fa, "login2fa", "", "obhod: confirm panel login with a Telegram code (true|false)")
+	settingCmd.StringVar(&subByName, "subByName", "", "obhod: serve subscriptions by client name too (true|false)")
 
 	adminCmd.BoolVar(&show, "show", false, "show first admin credentials")
 	adminCmd.BoolVar(&reset, "reset", false, "reset first admin credentials")
@@ -102,6 +105,17 @@ func ParseCmd() {
 		healthCheck()
 
 	case "migrate":
+		// obhod: копия файла базы перед изменением схемы — откатиться можно, просто вернув её
+		if src := config.GetDBPath(); src != "" {
+			// вместе с -wal/-shm: в журнале WAL могут лежать ещё не перенесённые в основной файл записи
+			for _, sfx := range []string{"", "-wal", "-shm"} {
+				if b, err := os.ReadFile(src + sfx); err == nil {
+					if err := os.WriteFile(src+".before-migrate"+sfx, b, 0o600); err == nil && sfx == "" {
+						fmt.Println("Database copy:", src+".before-migrate")
+					}
+				}
+			}
+		}
 		if err := migration.MigrateDb(); err != nil {
 			fmt.Println("Migration failed:", err)
 			os.Exit(1)
@@ -120,6 +134,7 @@ func ParseCmd() {
 			resetSetting()
 		default:
 			updateSetting(port, path, subPort, subPath)
+			updateObhodFlags(map[string]string{"login2fa": login2fa, "subByName": subByName})
 			showSetting()
 		}
 

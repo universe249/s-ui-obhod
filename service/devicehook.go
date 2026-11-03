@@ -7,6 +7,7 @@ package service
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -80,10 +81,17 @@ func sendDeviceWebhook(client *model.Client, dev *model.Device, e *model.DeviceE
 // SendPanelEvent (obhod) — событие панели, не связанное с устройствами (например, истекающий сертификат),
 // на тот же адрес уведомлений.
 func SendPanelEvent(kind string, data map[string]interface{}) {
+	if err := SendPanelEventSync(kind, data); err != nil {
+		logger.Warning("panel webhook: ", err)
+	}
+}
+
+// SendPanelEventSync — то же, но с результатом: нужно, когда без доставки нельзя (код входа).
+func SendPanelEventSync(kind string, data map[string]interface{}) error {
 	var set SettingService
 	url, _ := set.getString("deviceWebhook")
 	if url == "" {
-		return
+		return errNoWebhook
 	}
 	secret, _ := set.getString("deviceWebhookSecret")
 	payload := map[string]interface{}{"kind": kind, "at": time.Now().Unix()}
@@ -93,15 +101,21 @@ func SendPanelEvent(kind string, data map[string]interface{}) {
 	body, _ := json.Marshal(payload)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
 	if err != nil {
-		return
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if secret != "" {
 		req.Header.Set("X-Obhod-Secret", secret)
 	}
-	if resp, err := hookClient.Do(req); err == nil {
-		resp.Body.Close()
-	} else {
-		logger.Warning("panel webhook: ", err)
+	resp, err := hookClient.Do(req)
+	if err != nil {
+		return err
 	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("bot answered %d", resp.StatusCode)
+	}
+	return nil
 }
+
+var errNoWebhook = fmt.Errorf("адрес уведомлений (webhook) не задан")

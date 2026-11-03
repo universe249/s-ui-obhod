@@ -431,6 +431,20 @@ func rawHasKey(data json.RawMessage, idx int, key string) bool {
 	return ok
 }
 
+// keepSubToken — токен подписки ведёт панель: при правке сохраняется прежний, новому клиенту выдаётся свой.
+func keepSubToken(tx *gorm.DB, client *model.Client) {
+	if client.Id != 0 {
+		var old model.Client
+		if tx.Model(model.Client{}).Select("sub_token").Where("id = ?", client.Id).First(&old).Error == nil && old.SubToken != "" {
+			client.SubToken = old.SubToken
+			return
+		}
+	}
+	if client.SubToken == "" {
+		client.SubToken = NewSubToken()
+	}
+}
+
 // keepDeviceLimit — форма старого интерфейса не знает о лимите устройств; не сбрасываем его.
 func keepDeviceLimit(tx *gorm.DB, client *model.Client) {
 	if client.Id == 0 {
@@ -590,6 +604,7 @@ func (s *DeviceService) Summary() (map[uint]ClientDeviceSummary, error) {
 type ClientInfo struct {
 	Id           uint                `json:"id"`
 	Name         string              `json:"name"`
+	SubToken     string              `json:"subToken"`
 	Enable       bool                `json:"enable"`
 	Volume       int64               `json:"volume"`
 	Used         int64               `json:"used"`
@@ -620,7 +635,7 @@ func (s *DeviceService) ClientInfo(id uint, name string) (*ClientInfo, error) {
 	evs, _ := s.Events(c.Id, 20)
 	var hits int64
 	db.Model(model.DeviceEvent{}).Where("client_id = ? AND kind = ? AND at > ?", c.Id, "limit", time.Now().Unix()-86400).Count(&hits)
-	return &ClientInfo{Id: c.Id, Name: c.Name, Enable: c.Enable, Volume: c.Volume, Used: c.Up + c.Down, Expiry: c.Expiry,
+	return &ClientInfo{Id: c.Id, Name: c.Name, SubToken: c.SubToken, Enable: c.Enable, Volume: c.Volume, Used: c.Up + c.Down, Expiry: c.Expiry,
 		OnlineAt: c.OnlineAt, DeviceLimit: c.DeviceLimit, Devices: views, Events: evs, LimitHits24h: int(hits)}, nil
 }
 

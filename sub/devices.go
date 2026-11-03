@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/alireza0/s-ui/database"
 	"github.com/alireza0/s-ui/database/model"
 	"github.com/alireza0/s-ui/logger"
 	"github.com/alireza0/s-ui/service"
@@ -45,8 +44,8 @@ func firstNonEmpty(a ...string) string {
 
 // resolveClient находит клиента подписки; в режиме устройств возвращает копию клиента с ключами устройства.
 func resolveClient(subId string, info service.DeviceInfo) (*model.Client, *subRefusal, error) {
-	client := &model.Client{}
-	if err := database.GetDB().Model(model.Client{}).Where("enable = true and name = ?", subId).First(client).Error; err != nil {
+	client, err := service.ClientBySub(subId)
+	if err != nil {
 		return nil, nil, err
 	}
 	if client.DeviceLimit <= 0 {

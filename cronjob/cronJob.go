@@ -52,6 +52,8 @@ func (c *CronJob) Start(loc *time.Location, trafficAge int, statsBucketSeconds i
 	}
 	// Start core if it is not running
 	addJob("@every 5s", NewCheckCoreJob(), "core watchdog")
+	// obhod: копия базы каждую ночь (хранятся 7)
+	addJob("0 4 * * *", NewBackupJob(), "daily backup")
 	// obhod: прежние ключи устройств после смены — убрать, когда срок вышел
 	addJob("@every 1m", NewDeviceJob(), "device keys cleanup")
 	// database WAL checkpoint

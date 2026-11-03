@@ -41,6 +41,8 @@ func (a *APP) Init() error {
 
 	// Init Setting
 	a.SettingService.GetAllSetting()
+	// obhod: секретные адреса подписок для клиентов, перешедших с обычной s-ui
+	service.EnsureSubTokens()
 
 	a.core = core.NewCore()
 

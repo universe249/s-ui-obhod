@@ -115,9 +115,7 @@ func nodeRemark(settings *service.SettingService, client *model.Client) string {
 }
 
 func (j *JsonService) getData(subId string) (*model.Client, []*model.Inbound, error) {
-	db := database.GetDB()
-	client := &model.Client{}
-	err := db.Model(model.Client{}).Where("enable = true and name = ?", subId).First(client).Error
+	client, err := service.ClientBySub(subId)
 	if err != nil {
 		return nil, nil, err
 	}

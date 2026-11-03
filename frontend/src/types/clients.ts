@@ -29,6 +29,7 @@ export interface Client {
   createdAt?: number
   onlineAt?: number
   deviceLimit?: number
+  subToken?: string
 }
 
 // obhod: устройство клиента (своя пара ключей; появляется при скачивании подписки с x-hwid)

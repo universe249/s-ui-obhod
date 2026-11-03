@@ -42,6 +42,16 @@
                 type="password"
                 required
               />
+              <v-text-field
+                v-if="needCode"
+                v-model="code"
+                :label="$t('obhod.loginCode')"
+                :hint="$t('obhod.loginCodeHint')"
+                persistent-hint
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                autofocus
+              />
               <v-btn
                 :loading="loading"
                 type="submit"
@@ -125,10 +135,22 @@ const passwordRules = [
 const loading = ref(false)
 const router = useRouter()
 
+// obhod: если включено подтверждение входа, после пароля панель просит код из Telegram
+const needCode = ref(false)
+const code = ref('')
+
 const login = async () => {
   if (username.value == '' || password.value == '') return
+  if (needCode.value && code.value.trim() == '') return
   loading.value=true
-  const response = await HttpUtil.post('api/login',{user: username.value, pass: password.value})
+  const form: Record<string, string> = { user: username.value, pass: password.value }
+  if (needCode.value) form.code = code.value.trim()
+  const response = await HttpUtil.post<{ needCode?: boolean }>('api/login', form)
+  if (response.success && response.obj?.needCode) {
+    needCode.value = true
+    loading.value = false
+    return
+  }
   if(response.success){
     setAuthenticated()
     setTimeout(() => {

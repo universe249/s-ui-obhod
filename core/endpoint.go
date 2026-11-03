@@ -13,6 +13,7 @@ import (
 // box that has since been replaced by a restart.
 
 func (c *Core) AddInbound(config []byte) error {
+	c.mods.Add(1)
 	box, err := c.running()
 	if err != nil {
 		return err
@@ -32,6 +33,7 @@ func (c *Core) AddInbound(config []byte) error {
 }
 
 func (c *Core) RemoveInbound(tag string) error {
+	c.mods.Add(1)
 	box, err := c.running()
 	if err != nil {
 		return err
@@ -41,6 +43,7 @@ func (c *Core) RemoveInbound(tag string) error {
 }
 
 func (c *Core) AddOutbound(config []byte) error {
+	c.mods.Add(1)
 	box, err := c.running()
 	if err != nil {
 		return err
@@ -64,6 +67,7 @@ func (c *Core) AddOutbound(config []byte) error {
 }
 
 func (c *Core) RemoveOutbound(tag string) error {
+	c.mods.Add(1)
 	box, err := c.running()
 	if err != nil {
 		return err
@@ -73,6 +77,7 @@ func (c *Core) RemoveOutbound(tag string) error {
 }
 
 func (c *Core) AddEndpoint(config []byte) error {
+	c.mods.Add(1)
 	box, err := c.running()
 	if err != nil {
 		return err
@@ -92,6 +97,7 @@ func (c *Core) AddEndpoint(config []byte) error {
 }
 
 func (c *Core) RemoveEndpoint(tag string) error {
+	c.mods.Add(1)
 	box, err := c.running()
 	if err != nil {
 		return err
@@ -101,6 +107,7 @@ func (c *Core) RemoveEndpoint(tag string) error {
 }
 
 func (c *Core) AddService(config []byte) error {
+	c.mods.Add(1)
 	box, err := c.running()
 	if err != nil {
 		return err
@@ -119,6 +126,7 @@ func (c *Core) AddService(config []byte) error {
 }
 
 func (c *Core) RemoveService(tag string) error {
+	c.mods.Add(1)
 	box, err := c.running()
 	if err != nil {
 		return err

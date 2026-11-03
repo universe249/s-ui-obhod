@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/alireza0/s-ui/util/common"
 
@@ -29,7 +30,14 @@ type Core struct {
 	// Carries the protocol registries. Built once in NewCore and never
 	// reassigned, so it needs no lock.
 	ctx context.Context
+
+	// obhod: сколько раз меняли работающее ядро на ходу (Add*/Remove*). По нему панель понимает, что
+	// неудачное сохранение уже успело что-то поменять в ядре, и пересобирает ядро из базы.
+	mods atomic.Int64
 }
+
+// Mods — счётчик изменений работающего ядра на ходу.
+func (c *Core) Mods() int64 { return c.mods.Load() }
 
 func NewCore() *Core {
 	ctx := sb.Context(context.Background(), InboundRegistry(), OutboundRegistry(),
